@@ -1,1015 +1,1262 @@
 /* =========================================================
-   SIEGE OF CONSTANTINOPLE
-   UNITS & DEFENSE SYSTEM
+   SIEGE OF CONSTANTINOPLE V2
+   UNITS SYSTEM
    ========================================================= */
 
-let enemyIdCounter = 0;
+(function () {
+    "use strict";
+
+    // =====================================================
+    // GLOBAL ARRAYS
+    // =====================================================
+
+    window.enemies = [];
+    window.defenses = [];
+
+    let enemyId = 0;
+    let defenseId = 0;
 
 
-// =========================================================
-// ENEMY
-// =========================================================
+    // =====================================================
+    // HELPERS
+    // =====================================================
 
-class Enemy {
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
 
-    constructor(type = "soldier", wave = 1) {
+    function getWorld() {
+        return document.getElementById("gameWorld");
+    }
 
-        this.id = ++enemyIdCounter;
-        this.type = type;
-        this.wave = wave;
+    function getBattlefield() {
+        return document.getElementById("battlefield");
+    }
 
-        const stats = {
+    function getDefenseLayer() {
+        return document.getElementById("defenseLayer");
+    }
 
-            soldier: {
-                hp: 100,
-                speed: 0.055,
-                damage: 12,
-                attackSpeed: 1200,
-                range: 48,
-                reward: 15
-            },
+    function worldWidth() {
+        const world = getWorld();
+        return world ? world.clientWidth : window.innerWidth;
+    }
 
-            archer: {
-                hp: 70,
-                speed: 0.035,
-                damage: 8,
-                attackSpeed: 1500,
-                range: 160,
-                reward: 22
-            },
+    function worldHeight() {
+        const world = getWorld();
+        return world ? world.clientHeight : window.innerHeight;
+    }
 
-            janissary: {
-                hp: 180,
-                speed: 0.045,
-                damage: 20,
-                attackSpeed: 1100,
-                range: 55,
-                reward: 35
-            },
 
-            commander: {
-                hp: 650,
-                speed: 0.025,
-                damage: 35,
-                attackSpeed: 1000,
-                range: 70,
-                reward: 150
+    // =====================================================
+    // ENEMY
+    // =====================================================
+
+    class Enemy {
+
+        constructor(type, wave) {
+
+            this.id = ++enemyId;
+
+            this.type = type;
+            this.wave = wave;
+
+            this.alive = true;
+            this.attacking = false;
+            this.attackTimer = 0;
+
+            // ---------------------------------------------
+            // BASE STATS
+            // ---------------------------------------------
+
+            const stats = {
+
+                soldier: {
+                    hp: 100,
+                    speed: 0.045,
+                    damage: 12,
+                    attackSpeed: 1200,
+                    range: 4.5,
+                    reward: 15,
+                    score: 100
+                },
+
+                archer: {
+                    hp: 70,
+                    speed: 0.030,
+                    damage: 8,
+                    attackSpeed: 1500,
+                    range: 16,
+                    reward: 22,
+                    score: 150
+                },
+
+                janissary: {
+                    hp: 180,
+                    speed: 0.038,
+                    damage: 20,
+                    attackSpeed: 1100,
+                    range: 5.5,
+                    reward: 35,
+                    score: 250
+                },
+
+                commander: {
+                    hp: 650,
+                    speed: 0.022,
+                    damage: 35,
+                    attackSpeed: 1000,
+                    range: 7,
+                    reward: 150,
+                    score: 1000
+                }
+
+            };
+
+            const base = stats[type] || stats.soldier;
+
+            // ---------------------------------------------
+            // WAVE SCALING
+            // ---------------------------------------------
+
+            const hpMultiplier =
+                1 + Math.max(0, wave - 1) * 0.08;
+
+            const damageMultiplier =
+                1 + Math.max(0, wave - 1) * 0.06;
+
+            const speedMultiplier =
+                1 + Math.max(0, wave - 1) * 0.01;
+
+            this.maxHP = Math.round(base.hp * hpMultiplier);
+            this.hp = this.maxHP;
+
+            this.damage =
+                Math.round(base.damage * damageMultiplier);
+
+            this.speed =
+                base.speed * speedMultiplier;
+
+            this.attackSpeed = base.attackSpeed;
+            this.range = base.range;
+
+            this.reward = base.reward;
+            this.score = base.score;
+
+            // ---------------------------------------------
+            // POSITION
+            // ---------------------------------------------
+
+            this.x = 96 + Math.random() * 5;
+            this.y = 57 + Math.random() * 10;
+
+            // ---------------------------------------------
+            // DOM
+            // ---------------------------------------------
+
+            this.element = document.createElement("div");
+
+            this.element.className =
+                `enemy enemy-${this.type}`;
+
+            this.element.dataset.enemyId = this.id;
+
+            this.element.innerHTML = `
+                <div class="enemy-body">
+                    <div class="enemy-head"></div>
+                    <div class="enemy-weapon"></div>
+                </div>
+
+                <div class="enemy-hp">
+                    <div class="enemy-hp-fill"></div>
+                </div>
+
+                <div class="enemy-name">
+                    ${this.type.toUpperCase()}
+                </div>
+            `;
+
+            const battlefield = getBattlefield();
+
+            if (battlefield) {
+                battlefield.appendChild(this.element);
             }
-        };
 
-        const base =
-            stats[type] || stats.soldier;
+            this.hpBar =
+                this.element.querySelector(".enemy-hp-fill");
 
-
-        // Difficulty scaling
-        let multiplier = {
-            hp: 1,
-            damage: 1,
-            speed: 1
-        };
-
-        if (
-            typeof getDifficultyMultiplier ===
-            "function"
-        ) {
-            multiplier =
-                getDifficultyMultiplier(wave);
+            this.render();
         }
 
 
-        this.maxHp =
-            Math.round(
-                base.hp *
-                multiplier.hp
-            );
+        // =================================================
+        // RENDER
+        // =================================================
 
-        this.hp = this.maxHp;
+        render() {
 
-        this.speed =
-            base.speed *
-            multiplier.speed;
+            if (!this.element) return;
 
-        this.damage =
-            Math.round(
-                base.damage *
-                multiplier.damage
-            );
+            this.element.style.left = `${this.x}%`;
+            this.element.style.top = `${this.y}%`;
 
-        this.attackSpeed =
-            base.attackSpeed;
+            if (this.hpBar) {
 
-        this.range =
-            base.range;
+                const hpPercent =
+                    clamp(
+                        (this.hp / this.maxHP) * 100,
+                        0,
+                        100
+                    );
 
-        this.reward =
-            base.reward +
-            Math.floor(wave * 2);
-
-
-        // Position
-        this.x =
-            100 +
-            Math.random() * 5;
-
-        this.y =
-            58 +
-            Math.random() * 10;
-
-
-        this.attackCooldown = 0;
-
-        this.dead = false;
-
-        this.element =
-            this.createElement();
-
-
-        this.updatePosition();
-    }
-
-
-    // =====================================================
-    // CREATE DOM
-    // =====================================================
-
-    createElement() {
-
-        const el =
-            document.createElement("div");
-
-        el.className =
-            `enemy enemy-${this.type}`;
-
-        el.dataset.id =
-            this.id;
-
-        el.innerHTML = `
-
-            <div class="enemy-shadow"></div>
-
-            <div class="enemy-body">
-
-                <div class="enemy-head"></div>
-
-                <div class="enemy-torso"></div>
-
-                <div class="enemy-weapon"></div>
-
-            </div>
-
-            <div class="enemy-hp">
-
-                <div class="enemy-hp-fill"></div>
-
-            </div>
-
-        `;
-
-
-        const battlefield =
-            document.getElementById(
-                "battlefield"
-            );
-
-        if (battlefield) {
-            battlefield.appendChild(el);
+                this.hpBar.style.width =
+                    `${hpPercent}%`;
+            }
         }
 
 
-        return el;
-    }
+        // =================================================
+        // UPDATE
+        // =================================================
 
+        update(deltaTime) {
 
-    // =====================================================
-    // UPDATE
-    // =====================================================
+            if (!this.alive) return;
 
-    update(delta) {
+            // ---------------------------------------------
+            // CASTLE POSITION
+            // ---------------------------------------------
 
-        if (this.dead) {
-            return;
-        }
+            const castleX = 15;
 
+            const distance =
+                this.x - castleX;
 
-        this.attackCooldown -= delta;
+            // ---------------------------------------------
+            // ATTACK CASTLE
+            // ---------------------------------------------
 
+            if (distance <= this.range) {
 
-        const castleX = 12;
+                this.attackCastle(deltaTime);
 
+                return;
+            }
 
-        /*
-            Musuh spawn dari kanan
-            lalu bergerak ke kiri
-        */
+            // ---------------------------------------------
+            // MOVE
+            // ---------------------------------------------
 
-        if (this.x > castleX) {
+            this.attacking = false;
 
             this.x -=
-                this.speed *
-                delta;
+                this.speed * deltaTime;
 
-            this.updatePosition();
-
-            return;
-        }
-
-
-        // Sudah sampai castle
-        if (
-            this.attackCooldown <= 0
-        ) {
-
-            this.attackCastle();
-
-            this.attackCooldown =
-                this.attackSpeed;
-        }
-    }
-
-
-    // =====================================================
-    // POSITION
-    // =====================================================
-
-    updatePosition() {
-
-        if (!this.element) {
-            return;
-        }
-
-        this.element.style.left =
-            `${this.x}%`;
-
-        this.element.style.bottom =
-            `${this.y}%`;
-    }
-
-
-    // =====================================================
-    // ATTACK CASTLE
-    // =====================================================
-
-    attackCastle() {
-
-        if (
-            typeof damageCastle ===
-            "function"
-        ) {
-
-            damageCastle(
-                this.damage
-            );
-        }
-
-
-        // Visual attack
-        if (this.element) {
-
-            this.element.classList.add(
-                "enemy-attacking"
+            this.x = Math.max(
+                castleX,
+                this.x
             );
 
-            setTimeout(() => {
+            this.render();
+        }
 
-                if (this.element) {
 
-                    this.element.classList.remove(
-                        "enemy-attacking"
+        // =================================================
+        // ATTACK CASTLE
+        // =================================================
+
+        attackCastle(deltaTime) {
+
+            this.attacking = true;
+
+            this.attackTimer += deltaTime;
+
+            if (
+                this.attackTimer >=
+                this.attackSpeed
+            ) {
+
+                this.attackTimer = 0;
+
+                if (
+                    window.Game &&
+                    typeof window.Game.damageCity === "function"
+                ) {
+
+                    window.Game.damageCity(
+                        this.damage
                     );
                 }
 
-            }, 250);
+                if (
+                    window.Effects &&
+                    typeof window.Effects.buildingHit === "function"
+                ) {
+
+                    window.Effects.buildingHit(
+                        this.x,
+                        this.y
+                    );
+                }
+            }
+
+            this.render();
         }
-    }
 
 
-    // =====================================================
-    // TAKE DAMAGE
-    // =====================================================
+        // =================================================
+        // DAMAGE
+        // =================================================
 
-    takeDamage(amount) {
+        takeDamage(amount) {
 
-        if (this.dead) {
-            return;
-        }
+            if (!this.alive) return;
 
-
-        this.hp -= amount;
-
-
-        // HP bar
-        const fill =
-            this.element?.querySelector(
-                ".enemy-hp-fill"
+            amount = Math.max(
+                0,
+                Number(amount) || 0
             );
 
-        if (fill) {
+            this.hp -= amount;
 
-            const percentage =
-                Math.max(
-                    0,
-                    (this.hp /
-                        this.maxHp) *
-                    100
+            this.hp = Math.max(
+                0,
+                this.hp
+            );
+
+            this.render();
+
+            // ---------------------------------------------
+            // DAMAGE EFFECT
+            // ---------------------------------------------
+
+            if (
+                window.Effects &&
+                typeof window.Effects.showDamage === "function"
+            ) {
+
+                window.Effects.showDamage(
+                    this.x,
+                    this.y,
+                    Math.round(amount)
+                );
+            }
+
+            if (this.hp <= 0) {
+                this.die();
+            }
+        }
+
+
+        // =================================================
+        // DEATH
+        // =================================================
+
+        die() {
+
+            if (!this.alive) return;
+
+            this.alive = false;
+
+            // ---------------------------------------------
+            // EFFECT
+            // ---------------------------------------------
+
+            if (
+                window.Effects &&
+                typeof window.Effects.enemyDeathEffect === "function"
+            ) {
+
+                window.Effects.enemyDeathEffect(
+                    this.x,
+                    this.y,
+                    this.type
                 );
 
-            fill.style.width =
-                `${percentage}%`;
-        }
+            } else if (
+                window.Effects &&
+                typeof window.Effects.createDeathEffect === "function"
+            ) {
 
+                const px =
+                    worldWidth() *
+                    (this.x / 100);
 
-        // Hit flash
-        if (this.element) {
+                const py =
+                    worldHeight() *
+                    (this.y / 100);
 
-            this.element.classList.add(
-                "enemy-hit"
-            );
+                window.Effects.createDeathEffect(
+                    px,
+                    py,
+                    this.type
+                );
+            }
+
+            // ---------------------------------------------
+            // GAME REWARD
+            // ---------------------------------------------
+
+            if (
+                window.Game &&
+                typeof window.Game.addGold === "function"
+            ) {
+
+                window.Game.addGold(
+                    this.reward
+                );
+            }
+
+            if (
+                window.Game &&
+                typeof window.Game.addKill === "function"
+            ) {
+
+                window.Game.addKill(
+                    this.score
+                );
+            }
+
+            // ---------------------------------------------
+            // REMOVE DOM
+            // ---------------------------------------------
+
+            if (this.element) {
+
+                this.element.classList.add(
+                    "enemy-dead"
+                );
+
+                setTimeout(() => {
+
+                    if (this.element) {
+                        this.element.remove();
+                    }
+
+                }, 300);
+            }
+
+            // ---------------------------------------------
+            // REMOVE FROM ARRAY
+            // ---------------------------------------------
 
             setTimeout(() => {
 
-                this.element?.classList.remove(
-                    "enemy-hit"
-                );
+                const index =
+                    window.enemies.indexOf(this);
 
-            }, 120);
-        }
-
-
-        // Damage number
-        if (
-            typeof showDamage ===
-            "function"
-        ) {
-
-            showDamage(
-                this.x,
-                this.y + 10,
-                amount
-            );
-        }
-
-
-        // Death
-        if (this.hp <= 0) {
-
-            this.die();
-        }
-    }
-
-
-    // =====================================================
-    // DEATH
-    // =====================================================
-
-    die() {
-
-        if (this.dead) {
-            return;
-        }
-
-        this.dead = true;
-
-
-        if (
-            typeof createDeathEffect ===
-            "function"
-        ) {
-
-            createDeathEffect(
-                this.x,
-                this.y
-            );
-        }
-
-
-        if (
-            typeof enemyKilled ===
-            "function"
-        ) {
-
-            enemyKilled(
-                this.reward,
-                this
-            );
-        }
-
-
-        if (this.element) {
-
-            this.element.classList.add(
-                "enemy-dead"
-            );
-
-
-            setTimeout(() => {
-
-                this.element?.remove();
+                if (index !== -1) {
+                    window.enemies.splice(
+                        index,
+                        1
+                    );
+                }
 
             }, 350);
         }
     }
-}
 
 
-// =========================================================
-// DEFENSE BUILDING
-// =========================================================
+    // =====================================================
+    // DEFENSE BUILDING
+    // =====================================================
 
-class DefenseBuilding {
+    class DefenseBuilding {
 
-    constructor(type) {
+        constructor(type, options = {}) {
 
-        this.type = type;
+            this.id = ++defenseId;
 
-        const stats = {
+            this.type = type;
 
-            archer: {
-                damage: 25,
-                range: 280,
-                attackSpeed: 850
-            },
+            this.level = 1;
 
-            cannon: {
-                damage: 65,
-                range: 340,
-                attackSpeed: 2200
+            this.cooldown = 0;
+
+            this.built = true;
+
+            // ---------------------------------------------
+            // STATS
+            // ---------------------------------------------
+
+            if (type === "archer") {
+
+                this.damage = 25;
+                this.range = 30;
+                this.attackSpeed = 850;
+
+            } else {
+
+                this.damage = 65;
+                this.range = 36;
+                this.attackSpeed = 2200;
             }
-        };
 
+            // ---------------------------------------------
+            // POSITION
+            // ---------------------------------------------
 
-        const data =
-            stats[type];
+            this.x =
+                options.x !== undefined
+                    ? options.x
+                    : type === "archer"
+                        ? 28
+                        : 21;
 
+            this.y =
+                options.y !== undefined
+                    ? options.y
+                    : type === "archer"
+                        ? 55
+                        : 73;
 
-        this.damage =
-            data.damage;
+            this.element =
+                options.element || null;
 
-        this.range =
-            data.range;
+            // ---------------------------------------------
+            // CREATE DYNAMIC BUILDING
+            // ---------------------------------------------
 
-        this.attackSpeed =
-            data.attackSpeed;
+            if (!this.element) {
+                this.createElement();
+            }
 
-        this.cooldown = 0;
-
-        this.level = 1;
-
-        this.element =
-            document.getElementById(
-                type === "archer"
-                    ? "archerTower"
-                    : "cannonTower"
-            );
-    }
-
-
-    // =====================================================
-    // UPDATE
-    // =====================================================
-
-    update(delta) {
-
-        if (!this.element) {
-            return;
+            this.updateLevelUI();
         }
 
 
-        this.cooldown -= delta;
+        // =================================================
+        // CREATE ELEMENT
+        // =================================================
+
+        createElement() {
+
+            const layer =
+                getDefenseLayer();
+
+            if (!layer) return;
+
+            const wrapper =
+                document.createElement("div");
+
+            wrapper.className =
+                `defense-building ${
+                    this.type === "archer"
+                        ? "archer-tower"
+                        : "cannon-tower"
+                } dynamic-defense`;
+
+            wrapper.dataset.defenseId =
+                this.id;
+
+            if (this.type === "archer") {
+
+                wrapper.innerHTML = `
+                    <div class="tower-wood-base"></div>
+
+                    <div class="archer-platform">
+                        <div class="archer-character">
+                            <div class="archer-head"></div>
+                            <div class="archer-body"></div>
+                            <div class="archer-bow"></div>
+                            <div class="archer-arm"></div>
+                        </div>
+                    </div>
+
+                    <div class="tower-ladder"></div>
+
+                    <div class="building-level">
+                        LV 1
+                    </div>
+                `;
+
+            } else {
+
+                wrapper.innerHTML = `
+                    <div class="cannon-base">
+
+                        <div class="cannon-wheel left"></div>
+                        <div class="cannon-wheel right"></div>
+
+                        <div class="cannon-body">
+                            <div class="cannon-barrel"></div>
+                            <div class="cannon-muzzle"></div>
+                        </div>
+
+                    </div>
+
+                    <div class="building-level">
+                        LV 1
+                    </div>
+                `;
+            }
+
+            layer.appendChild(wrapper);
+
+            this.element = wrapper;
+
+            this.positionElement();
+        }
 
 
-        if (
-            this.cooldown <= 0
-        ) {
+        // =================================================
+        // POSITION ELEMENT
+        // =================================================
+
+        positionElement() {
+
+            if (!this.element) return;
+
+            this.element.style.left =
+                `${this.x}%`;
+
+            this.element.style.top =
+                `${this.y}%`;
+        }
+
+
+        // =================================================
+        // UPDATE
+        // =================================================
+
+        update(deltaTime) {
+
+            if (!this.built) return;
+
+            this.cooldown -= deltaTime;
+
+            if (this.cooldown > 0) {
+                return;
+            }
 
             const target =
                 this.findTarget();
 
-
-            if (target) {
-
-                this.attack(
-                    target
-                );
-
-                this.cooldown =
-                    this.attackSpeed;
-            }
-        }
-    }
-
-
-    // =====================================================
-    // FIND TARGET
-    // =====================================================
-
-    findTarget() {
-
-        if (
-            typeof enemies ===
-            "undefined"
-        ) {
-
-            return null;
-        }
-
-
-        let closest = null;
-
-        let closestDistance =
-            Infinity;
-
-
-        for (
-            const enemy of enemies
-        ) {
-
-            if (
-                !enemy ||
-                enemy.dead
-            ) {
-                continue;
+            if (!target) {
+                return;
             }
 
+            this.attack(target);
 
-            const distance =
-                this.getDistance(
-                    enemy
-                );
-
-
-            if (
-                distance <=
-                    this.range &&
-                distance <
-                    closestDistance
-            ) {
-
-                closest =
-                    enemy;
-
-                closestDistance =
-                    distance;
-            }
-        }
-
-
-        return closest;
-    }
-
-
-    // =====================================================
-    // DISTANCE
-    // =====================================================
-
-    getDistance(enemy) {
-
-        /*
-            Tower berada sekitar 15%
-            dari battlefield.
-        */
-
-        const towerX =
-            this.type === "archer"
-                ? 16
-                : 22;
-
-
-        return Math.abs(
-            enemy.x -
-            towerX
-        );
-    }
-
-
-    // =====================================================
-    // ATTACK
-    // =====================================================
-
-    attack(enemy) {
-
-        if (
-            !enemy ||
-            enemy.dead
-        ) {
-            return;
-        }
-
-
-        const startX =
-            this.type === "archer"
-                ? 17
-                : 23;
-
-        const startY =
-            this.type === "archer"
-                ? 78
-                : 70;
-
-
-        const targetX =
-            enemy.x;
-
-        const targetY =
-            enemy.y + 8;
-
-
-        // =================================================
-        // ARCHER
-        // =================================================
-
-        if (
-            this.type ===
-            "archer"
-        ) {
-
-            if (
-                typeof animateArcherTower ===
-                "function"
-            ) {
-
-                animateArcherTower();
-            }
-
-
-            if (
-                typeof shootArrow ===
-                "function"
-            ) {
-
-                shootArrow(
-                    startX,
-                    startY,
-                    targetX,
-                    targetY,
-                    this.damage,
-                    () => {
-
-                        if (
-                            !enemy.dead
-                        ) {
-
-                            enemy.takeDamage(
-                                this.damage
-                            );
-                        }
-                    }
-                );
-            }
+            this.cooldown =
+                this.attackSpeed;
         }
 
 
         // =================================================
-        // CANNON
+        // FIND TARGET
         // =================================================
 
-        if (
-            this.type ===
-            "cannon"
-        ) {
+        findTarget() {
 
-            if (
-                typeof animateCannon ===
-                "function"
-            ) {
+            let bestTarget = null;
+            let bestDistance = Infinity;
 
-                animateCannon();
-            }
-
-
-            if (
-                typeof muzzleFlash ===
-                "function"
-            ) {
-
-                muzzleFlash();
-            }
-
-
-            if (
-                typeof shootCannonball ===
-                "function"
-            ) {
-
-                shootCannonball(
-                    startX,
-                    startY,
-                    targetX,
-                    targetY,
-                    this.damage,
-                    85,
-                    () => {
-
-                        this.areaDamage(
-                            enemy
-                        );
-                    }
-                );
-            }
-        }
-    }
-
-
-    // =====================================================
-    // CANNON AREA DAMAGE
-    // =====================================================
-
-    areaDamage(primaryTarget) {
-
-        if (
-            typeof enemies ===
-            "undefined"
-        ) {
-            return;
-        }
-
-
-        const radius = 8.5;
-
-
-        for (
-            const enemy of enemies
-        ) {
-
-            if (
-                !enemy ||
-                enemy.dead
-            ) {
-                continue;
-            }
-
-
-            const distance =
-                Math.abs(
-                    enemy.x -
-                    primaryTarget.x
-                );
-
-
-            if (
-                distance <=
-                radius
-            ) {
+            for (const enemy of window.enemies) {
 
                 if (
-                    enemy ===
-                    primaryTarget
+                    !enemy ||
+                    !enemy.alive
+                ) {
+                    continue;
+                }
+
+                const dx =
+                    enemy.x - this.x;
+
+                const dy =
+                    enemy.y - this.y;
+
+                const distance =
+                    Math.sqrt(
+                        dx * dx +
+                        dy * dy
+                    );
+
+                if (
+                    distance <= this.range &&
+                    distance < bestDistance
                 ) {
 
-                    enemy.takeDamage(
-                        this.damage
+                    bestDistance =
+                        distance;
+
+                    bestTarget =
+                        enemy;
+                }
+            }
+
+            return bestTarget;
+        }
+
+
+        // =================================================
+        // ATTACK
+        // =================================================
+
+        attack(target) {
+
+            if (!target || !target.alive) {
+                return;
+            }
+
+            // ---------------------------------------------
+            // ARCHER
+            // ---------------------------------------------
+
+            if (this.type === "archer") {
+
+                const damage =
+                    this.damage;
+
+                if (
+                    window.Effects &&
+                    typeof window.Effects.animateArcherTower === "function"
+                ) {
+
+                    window.Effects.animateArcherTower(
+                        this.element
+                    );
+                }
+
+                if (
+                    window.Effects &&
+                    typeof window.Effects.fireArrow === "function"
+                ) {
+
+                    window.Effects.fireArrow(
+                        this.x,
+                        this.y,
+                        target.x,
+                        target.y,
+                        () => {
+
+                            if (target.alive) {
+                                target.takeDamage(
+                                    damage
+                                );
+                            }
+                        }
                     );
 
                 } else {
 
-                    enemy.takeDamage(
-                        Math.round(
-                            this.damage *
-                            0.55
-                        )
+                    target.takeDamage(
+                        damage
+                    );
+                }
+
+                return;
+            }
+
+
+            // ---------------------------------------------
+            // CANNON
+            // ---------------------------------------------
+
+            if (this.type === "cannon") {
+
+                const damage =
+                    this.damage;
+
+                if (
+                    window.Effects &&
+                    typeof window.Effects.animateCannon === "function"
+                ) {
+
+                    window.Effects.animateCannon(
+                        this.element
+                    );
+                }
+
+                if (
+                    window.Effects &&
+                    typeof window.Effects.fireCannonball === "function"
+                ) {
+
+                    window.Effects.fireCannonball(
+                        this.x,
+                        this.y,
+                        target.x,
+                        target.y,
+                        () => {
+
+                            this.areaDamage(
+                                target,
+                                damage
+                            );
+                        }
+                    );
+
+                } else {
+
+                    this.areaDamage(
+                        target,
+                        damage
                     );
                 }
             }
         }
-    }
 
 
-    // =====================================================
-    // UPGRADE
-    // =====================================================
+        // =================================================
+        // CANNON AREA DAMAGE
+        // =================================================
 
-    upgrade() {
+        areaDamage(
+            primaryTarget,
+            damage
+        ) {
 
-        this.level++;
+            if (
+                !primaryTarget ||
+                !primaryTarget.alive
+            ) {
+                return;
+            }
 
+            const radius = 8;
 
-        this.damage =
-            Math.round(
-                this.damage *
-                1.25
-            );
+            for (const enemy of window.enemies) {
 
+                if (
+                    !enemy ||
+                    !enemy.alive
+                ) {
+                    continue;
+                }
 
-        this.range += 25;
+                const dx =
+                    enemy.x -
+                    primaryTarget.x;
 
+                const dy =
+                    enemy.y -
+                    primaryTarget.y;
 
-        this.attackSpeed =
-            Math.max(
-                350,
-                Math.round(
-                    this.attackSpeed *
-                    0.90
-                )
-            );
+                const distance =
+                    Math.sqrt(
+                        dx * dx +
+                        dy * dy
+                    );
 
+                if (distance <= radius) {
 
-        // Level indicator
-        const levelLabel =
-            this.element?.querySelector(
-                ".tower-level"
-            );
+                    const multiplier =
+                        enemy === primaryTarget
+                            ? 1
+                            : 0.55;
 
+                    enemy.takeDamage(
+                        Math.round(
+                            damage *
+                            multiplier
+                        )
+                    );
+                }
+            }
 
-        if (levelLabel) {
+            if (
+                window.Effects &&
+                typeof window.Effects.createExplosion === "function"
+            ) {
 
-            levelLabel.textContent =
-                `LV ${this.level}`;
+                window.Effects.createExplosion(
+                    primaryTarget.x,
+                    primaryTarget.y
+                );
+            }
         }
 
 
-        // Upgrade effect
-        if (
-            typeof createParticle ===
-            "function"
-        ) {
+        // =================================================
+        // UPGRADE
+        // =================================================
 
-            for (
-                let i = 0;
-                i < 10;
-                i++
+        upgrade() {
+
+            this.level++;
+
+            this.damage =
+                Math.round(
+                    this.damage * 1.25
+                );
+
+            this.range += 2.5;
+
+            this.attackSpeed =
+                Math.max(
+                    250,
+                    this.attackSpeed * 0.9
+                );
+
+            this.updateLevelUI();
+
+            // ---------------------------------------------
+            // UPGRADE EFFECT
+            // ---------------------------------------------
+
+            if (
+                window.Effects &&
+                typeof window.Effects.createParticle === "function"
             ) {
 
-                createParticle(
-                    this.type ===
-                        "archer"
-                        ? 16
-                        : 22,
-                    this.type ===
-                        "archer"
-                        ? 70
-                        : 65,
-                    "✨"
+                window.Effects.createParticle(
+                    this.x,
+                    this.y,
+                    "upgrade"
+                );
+            }
+        }
+
+
+        // =================================================
+        // LEVEL UI
+        // =================================================
+
+        updateLevelUI() {
+
+            if (!this.element) return;
+
+            const level =
+                this.element.querySelector(
+                    ".building-level"
+                );
+
+            if (level) {
+
+                level.textContent =
+                    `LV ${this.level}`;
+            }
+        }
+
+
+        // =================================================
+        // REMOVE
+        // =================================================
+
+        destroy() {
+
+            this.built = false;
+
+            if (this.element) {
+                this.element.remove();
+            }
+
+            const index =
+                window.defenses.indexOf(this);
+
+            if (index !== -1) {
+                window.defenses.splice(
+                    index,
+                    1
                 );
             }
         }
     }
-}
 
 
-// =========================================================
-// DEFENSE OBJECTS
-// =========================================================
+    // =====================================================
+    // CREATE DEFAULT DEFENSES
+    // =====================================================
 
-class ArcherTower
-    extends DefenseBuilding {
+    function createDefaultDefenses() {
 
-    constructor() {
+        clearDefenses();
 
-        super("archer");
-    }
-}
+        const archerElement =
+            document.getElementById(
+                "archerTower"
+            );
 
-
-class Cannon
-    extends DefenseBuilding {
-
-    constructor() {
-
-        super("cannon");
-    }
-}
+        const cannonElement =
+            document.getElementById(
+                "cannonTower"
+            );
 
 
-let archerTower = null;
+        // ---------------------------------------------
+        // DEFAULT ARCHER
+        // ---------------------------------------------
 
-let cannon = null;
-
-
-// =========================================================
-// INITIALIZE DEFENSE
-// =========================================================
-
-function initializeDefenses() {
-
-    archerTower =
-        new ArcherTower();
-
-    cannon =
-        new Cannon();
-
-    console.log(
-        "🏹 Archer Tower ready"
-    );
-
-    console.log(
-        "💣 Cannon ready"
-    );
-}
+        const archer =
+            new DefenseBuilding(
+                "archer",
+                {
+                    element: archerElement,
+                    x: 28,
+                    y: 55
+                }
+            );
 
 
-// =========================================================
-// UPDATE DEFENSES
-// =========================================================
+        // ---------------------------------------------
+        // DEFAULT CANNON
+        // ---------------------------------------------
 
-function updateDefenses(delta) {
+        const cannon =
+            new DefenseBuilding(
+                "cannon",
+                {
+                    element: cannonElement,
+                    x: 21,
+                    y: 73
+                }
+            );
 
-    if (archerTower) {
 
-        archerTower.update(
-            delta
+        window.defenses.push(
+            archer,
+            cannon
         );
+
+        return window.defenses;
     }
 
 
-    if (cannon) {
+    // =====================================================
+    // BUY ARCHER
+    // =====================================================
 
-        cannon.update(
-            delta
+    function createArcher() {
+
+        const archer =
+            new DefenseBuilding(
+                "archer",
+                {
+                    x:
+                        27 +
+                        (window.defenses.length % 3) * 6,
+
+                    y:
+                        48 +
+                        (window.defenses.length % 2) * 8
+                }
+            );
+
+        window.defenses.push(
+            archer
         );
-    }
-}
 
-
-// =========================================================
-// BUILD ARCHER
-// =========================================================
-
-function buildArcherTower() {
-
-    if (!archerTower) {
-
-        archerTower =
-            new ArcherTower();
-
-        return true;
+        return archer;
     }
 
 
-    return false;
-}
+    // =====================================================
+    // BUY CANNON
+    // =====================================================
 
+    function createCannon() {
 
-// =========================================================
-// BUILD CANNON
-// =========================================================
+        const cannon =
+            new DefenseBuilding(
+                "cannon",
+                {
+                    x:
+                        18 +
+                        (window.defenses.length % 3) * 7,
 
-function buildCannon() {
+                    y:
+                        68 +
+                        (window.defenses.length % 2) * 6
+                }
+            );
 
-    if (!cannon) {
+        window.defenses.push(
+            cannon
+        );
 
-        cannon =
-            new Cannon();
-
-        return true;
+        return cannon;
     }
 
 
-    return false;
-}
+    // =====================================================
+    // UPDATE ALL UNITS
+    // =====================================================
+
+    function updateUnits(deltaTime) {
+
+        // ---------------------------------------------
+        // DEFENSES
+        // ---------------------------------------------
+
+        for (const defense of window.defenses) {
+
+            if (defense) {
+                defense.update(
+                    deltaTime
+                );
+            }
+        }
 
 
-// =========================================================
-// UPGRADE DEFENSE
-// =========================================================
+        // ---------------------------------------------
+        // ENEMIES
+        // ---------------------------------------------
 
-function upgradeDefense(type) {
+        for (const enemy of [...window.enemies]) {
 
-    if (
-        type ===
-        "archer" &&
-        archerTower
+            if (
+                enemy &&
+                enemy.alive
+            ) {
+
+                enemy.update(
+                    deltaTime
+                );
+            }
+        }
+    }
+
+
+    // =====================================================
+    // CLEAR ENEMIES
+    // =====================================================
+
+    function clearEnemies() {
+
+        for (const enemy of window.enemies) {
+
+            if (enemy.element) {
+                enemy.element.remove();
+            }
+        }
+
+        window.enemies.length = 0;
+    }
+
+
+    // =====================================================
+    // CLEAR DEFENSES
+    // =====================================================
+
+    function clearDefenses() {
+
+        for (const defense of window.defenses) {
+
+            if (
+                defense.element &&
+                defense.element.classList.contains(
+                    "dynamic-defense"
+                )
+            ) {
+
+                defense.element.remove();
+            }
+        }
+
+        window.defenses.length = 0;
+
+
+        // Restore static buildings if they exist
+        const archer =
+            document.getElementById(
+                "archerTower"
+            );
+
+        const cannon =
+            document.getElementById(
+                "cannonTower"
+            );
+
+        if (archer) {
+            archer.style.display =
+                "block";
+        }
+
+        if (cannon) {
+            cannon.style.display =
+                "block";
+        }
+    }
+
+
+    // =====================================================
+    // CLEAR EVERYTHING
+    // =====================================================
+
+    function clearUnits() {
+
+        clearEnemies();
+        clearDefenses();
+    }
+
+
+    // =====================================================
+    // SPAWN ENEMY
+    // =====================================================
+
+    function spawnEnemy(
+        type,
+        wave
     ) {
 
-        archerTower.upgrade();
+        const enemy =
+            new Enemy(
+                type,
+                wave
+            );
 
-        return;
+        window.enemies.push(
+            enemy
+        );
+
+        return enemy;
     }
 
 
-    if (
-        type ===
-        "cannon" &&
-        cannon
-    ) {
+    // =====================================================
+    // EXPORT API
+    // =====================================================
 
-        cannon.upgrade();
-    }
-}
+    window.Enemy =
+        Enemy;
+
+    window.DefenseBuilding =
+        DefenseBuilding;
+
+    window.ArcherTower =
+        DefenseBuilding;
+
+    window.Cannon =
+        DefenseBuilding;
 
 
-// =========================================================
-// GLOBAL ACCESS
-// =========================================================
+    window.Units = {
 
-window.Enemy =
-    Enemy;
+        Enemy,
 
-window.ArcherTower =
-    ArcherTower;
+        DefenseBuilding,
 
-window.Cannon =
-    Cannon;
+        ArcherTower:
+            DefenseBuilding,
 
-window.initializeDefenses =
-    initializeDefenses;
+        Cannon:
+            DefenseBuilding,
 
-window.updateDefenses =
-    updateDefenses;
+        createDefaultDefenses,
 
-window.buildArcherTower =
-    buildArcherTower;
+        createArcher,
 
-window.buildCannon =
-    buildCannon;
+        createCannon,
 
-window.upgradeDefense =
-    upgradeDefense;
+        spawnEnemy,
+
+        updateUnits,
+
+        clearEnemies,
+
+        clearDefenses,
+
+        clearUnits,
+
+        get enemies() {
+            return window.enemies;
+        },
+
+        get defenses() {
+            return window.defenses;
+        }
+    };
+
+})();
