@@ -1,801 +1,695 @@
-"use strict";
+(function () {
+    "use strict";
 
-/*
-=========================================================
- SIEGE OF CONSTANTINOPLE V2
- EFFECTS SYSTEM
-=========================================================
+    const projectileLayer = document.getElementById("projectileLayer");
+    const particleLayer = document.getElementById("particleLayer");
+    const damageLayer = document.getElementById("damageLayer");
+    const gameWorld = document.getElementById("gameWorld");
 
- Handles:
- - Arrow projectiles
- - Cannonballs
- - Explosions
- - Particles
- - Damage numbers
- - Fire Rain
- - Screen shake
-=========================================================
-*/
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
 
+    function random(min, max) {
+        return Math.random() * (max - min) + min;
+    }
 
-/* ======================================================
-   GLOBAL EFFECT LAYERS
-====================================================== */
+    function getWorldSize() {
+        return {
+            width: gameWorld
+                ? gameWorld.clientWidth
+                : window.innerWidth,
 
-const projectileLayer =
-    document.getElementById("projectileLayer");
+            height: gameWorld
+                ? gameWorld.clientHeight
+                : window.innerHeight
+        };
+    }
 
-const particleLayer =
-    document.getElementById("particleLayer");
+    function percentToPixels(x, y) {
+        const size = getWorldSize();
 
-const damageLayer =
-    document.getElementById("damageLayer");
+        return {
+            x: (x / 100) * size.width,
+            y: (y / 100) * size.height
+        };
+    }
 
-const gameWorld =
-    document.getElementById("gameWorld");
+    // =====================================================
+    // PROJECTILE
+    // =====================================================
 
-
-/* ======================================================
-   UTILITY
-====================================================== */
-
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-}
-
-
-function random(min, max) {
-    return Math.random() * (max - min) + min;
-}
-
-
-/* ======================================================
-   PROJECTILE BASE
-====================================================== */
-
-function createProjectile(className, x, y) {
-
-    const projectile =
-        document.createElement("div");
-
-    projectile.className =
-        `projectile ${className}`;
-
-    projectile.style.left =
-        `${x}px`;
-
-    projectile.style.top =
-        `${y}px`;
-
-    projectileLayer.appendChild(projectile);
-
-    return projectile;
-}
-
-
-/* ======================================================
-   ARROW
-====================================================== */
-
-function shootArrow(startX, startY, targetX, targetY, damage, onHit) {
-
-    const arrow =
-        createProjectile(
-            "arrow",
-            startX,
-            startY
-        );
-
-    const dx = targetX - startX;
-    const dy = targetY - startY;
-
-    const distance =
-        Math.sqrt(dx * dx + dy * dy);
-
-    const duration =
-        clamp(distance * 2.2, 250, 700);
-
-    const angle =
-        Math.atan2(dy, dx) *
-        180 /
-        Math.PI;
-
-    arrow.style.transform =
-        `rotate(${angle}deg)`;
-
-
-    const startTime =
-        performance.now();
-
-
-    function animate(currentTime) {
-
-        const elapsed =
-            currentTime - startTime;
-
-        const progress =
-            clamp(
-                elapsed / duration,
-                0,
-                1
-            );
-
-
-        /*
-        Slight arc so the arrow doesn't fly
-        completely flat.
-        */
-
-        const arc =
-            Math.sin(progress * Math.PI) *
-            -35;
-
-
-        const currentX =
-            startX +
-            dx * progress;
-
-        const currentY =
-            startY +
-            dy * progress +
-            arc;
-
-
-        arrow.style.left =
-            `${currentX}px`;
-
-        arrow.style.top =
-            `${currentY}px`;
-
-
-        if (progress < 1) {
-
-            requestAnimationFrame(animate);
-
-        } else {
-
-            arrow.remove();
-
-            createHitEffect(
-                targetX,
-                targetY,
-                "arrow"
-            );
-
-            showDamage(
-                targetX,
-                targetY,
-                damage
-            );
-
-            if (typeof onHit === "function") {
-                onHit();
-            }
+    function createProjectile(
+        className,
+        startX,
+        startY,
+        endX,
+        endY,
+        duration,
+        callback
+    ) {
+        if (!projectileLayer) {
+            if (callback) callback();
+            return;
         }
-    }
 
+        const start = percentToPixels(startX, startY);
+        const end = percentToPixels(endX, endY);
 
-    requestAnimationFrame(animate);
-}
+        const projectile =
+            document.createElement("div");
 
+        projectile.className =
+            `projectile ${className}`;
 
-/* ======================================================
-   CANNONBALL
-====================================================== */
+        projectile.style.left =
+            `${start.x}px`;
 
-function shootCannonball(
-    startX,
-    startY,
-    targetX,
-    targetY,
-    damage,
-    radius,
-    onHit
-) {
+        projectile.style.top =
+            `${start.y}px`;
 
-    const ball =
-        createProjectile(
-            "cannonball",
-            startX,
-            startY
+        const dx =
+            end.x - start.x;
+
+        const dy =
+            end.y - start.y;
+
+        const angle =
+            Math.atan2(dy, dx) *
+            180 /
+            Math.PI;
+
+        projectile.style.transform =
+            `rotate(${angle}deg)`;
+
+        projectileLayer.appendChild(
+            projectile
         );
 
-
-    const dx =
-        targetX - startX;
-
-    const dy =
-        targetY - startY;
-
-    const distance =
-        Math.sqrt(dx * dx + dy * dy);
-
-
-    const duration =
-        clamp(
-            distance * 2.8,
-            400,
-            1000
-        );
-
-
-    const startTime =
-        performance.now();
-
-
-    function animate(currentTime) {
-
-        const elapsed =
-            currentTime - startTime;
-
-        const progress =
-            clamp(
-                elapsed / duration,
-                0,
-                1
-            );
-
-
-        /*
-        Cannonball gets a proper ballistic arc.
-        */
-
-        const arc =
-            Math.sin(progress * Math.PI) *
-            -120;
-
-
-        const currentX =
-            startX +
-            dx * progress;
-
-        const currentY =
-            startY +
-            dy * progress +
-            arc;
-
-
-        ball.style.left =
-            `${currentX}px`;
-
-        ball.style.top =
-            `${currentY}px`;
-
-
-        if (progress < 1) {
-
-            requestAnimationFrame(animate);
-
-        } else {
-
-            ball.remove();
-
-
-            createExplosion(
-                targetX,
-                targetY,
-                radius
-            );
-
-
-            showDamage(
-                targetX,
-                targetY,
-                damage
-            );
-
-
-            screenShake();
-
-
-            if (typeof onHit === "function") {
-                onHit();
-            }
-        }
-    }
-
-
-    requestAnimationFrame(animate);
-}
-
-
-/* ======================================================
-   HIT EFFECT
-====================================================== */
-
-function createHitEffect(x, y, type = "arrow") {
-
-    const amount =
-        type === "cannon"
-            ? 16
-            : 7;
-
-
-    for (let i = 0; i < amount; i++) {
-
-        createParticle(
-            x,
-            y,
-            type === "cannon"
-                ? 5
-                : 3
-        );
-    }
-}
-
-
-/* ======================================================
-   EXPLOSION
-====================================================== */
-
-function createExplosion(
-    x,
-    y,
-    radius = 60
-) {
-
-    const explosion =
-        document.createElement("div");
-
-    explosion.className =
-        "explosion";
-
-
-    const size =
-        clamp(
-            radius * 0.7,
-            30,
-            100
-        );
-
-
-    explosion.style.width =
-        `${size}px`;
-
-    explosion.style.height =
-        `${size}px`;
-
-    explosion.style.left =
-        `${x - size / 2}px`;
-
-    explosion.style.top =
-        `${y - size / 2}px`;
-
-
-    projectileLayer.appendChild(
-        explosion
-    );
-
-
-    for (let i = 0; i < 20; i++) {
-
-        createParticle(
-            x,
-            y,
-            random(3, 7)
-        );
-    }
-
-
-    setTimeout(() => {
-
-        explosion.remove();
-
-    }, 500);
-}
-
-
-/* ======================================================
-   PARTICLES
-====================================================== */
-
-function createParticle(
-    x,
-    y,
-    size = 5
-) {
-
-    const particle =
-        document.createElement("div");
-
-    particle.className =
-        "particle";
-
-
-    const angle =
-        random(0, Math.PI * 2);
-
-    const distance =
-        random(20, 70);
-
-
-    const px =
-        Math.cos(angle) *
-        distance;
-
-    const py =
-        Math.sin(angle) *
-        distance;
-
-
-    particle.style.left =
-        `${x}px`;
-
-    particle.style.top =
-        `${y}px`;
-
-
-    particle.style.width =
-        `${size}px`;
-
-    particle.style.height =
-        `${size}px`;
-
-
-    particle.style.setProperty(
-        "--px",
-        `${px}px`
-    );
-
-    particle.style.setProperty(
-        "--py",
-        `${py}px`
-    );
-
-
-    particleLayer.appendChild(
-        particle
-    );
-
-
-    setTimeout(() => {
-
-        particle.remove();
-
-    }, 700);
-}
-
-
-/* ======================================================
-   DAMAGE NUMBER
-====================================================== */
-
-function showDamage(
-    x,
-    y,
-    damage
-) {
-
-    const number =
-        document.createElement("div");
-
-    number.className =
-        "damage-number";
-
-
-    const rounded =
-        Math.max(
-            1,
-            Math.round(damage)
-        );
-
-
-    number.textContent =
-        `-${rounded}`;
-
-
-    number.style.left =
-        `${x}px`;
-
-    number.style.top =
-        `${y}px`;
-
-
-    damageLayer.appendChild(
-        number
-    );
-
-
-    setTimeout(() => {
-
-        number.remove();
-
-    }, 850);
-}
-
-
-/* ======================================================
-   FIRE RAIN
-====================================================== */
-
-function fireRain(
-    amount = 20,
-    damage = 80
-) {
-
-    if (!gameWorld) return;
-
-
-    const width =
-        gameWorld.clientWidth;
-
-    const height =
-        gameWorld.clientHeight;
-
-
-    for (let i = 0; i < amount; i++) {
-
-        setTimeout(() => {
-
-            const fireball =
-                document.createElement("div");
-
-            fireball.className =
-                "fireball";
-
+        const startTime =
+            performance.now();
+
+        function animate(now) {
+
+            const progress =
+                clamp(
+                    (now - startTime) /
+                    duration,
+                    0,
+                    1
+                );
 
             const x =
-                random(
-                    width * 0.25,
-                    width * 0.85
-                );
-
+                start.x +
+                (end.x - start.x) *
+                progress;
 
             const y =
-                random(
-                    -150,
-                    -30
-                );
+                start.y +
+                (end.y - start.y) *
+                progress;
 
-
-            fireball.style.left =
+            projectile.style.left =
                 `${x}px`;
 
-            fireball.style.top =
+            projectile.style.top =
                 `${y}px`;
 
+            if (progress < 1) {
 
-            projectileLayer.appendChild(
-                fireball
-            );
+                requestAnimationFrame(
+                    animate
+                );
 
+            } else {
 
-            setTimeout(() => {
+                projectile.remove();
 
-                fireball.remove();
+                if (callback) {
+                    callback();
+                }
+            }
+        }
 
-            }, 700);
-
-
-        }, i * 50);
-
+        requestAnimationFrame(
+            animate
+        );
     }
 
+    function fireArrow(
+        startX,
+        startY,
+        endX,
+        endY,
+        callback
+    ) {
+        createProjectile(
+            "arrow-projectile",
+            startX,
+            startY,
+            endX,
+            endY,
+            260,
+            callback
+        );
+    }
 
-    /*
-    Actual damage is handled by game.js.
-    This function is only responsible for
-    visual effects.
-    */
+    function fireCannonball(
+        startX,
+        startY,
+        endX,
+        endY,
+        callback
+    ) {
+        createProjectile(
+            "cannonball-projectile",
+            startX,
+            startY,
+            endX,
+            endY,
+            420,
+            callback
+        );
+    }
 
-    screenShake();
-}
+    // =====================================================
+    // HIT EFFECT
+    // =====================================================
 
+    function createHitEffect(
+        x,
+        y
+    ) {
+        const pos =
+            percentToPixels(x, y);
 
-/* ======================================================
-   BUILDING ATTACK ANIMATION
-====================================================== */
+        const hit =
+            document.createElement("div");
 
-function animateArcherTower() {
+        hit.className =
+            "hit-effect";
 
-    const tower =
-        document.getElementById(
-            "archerTower"
+        hit.style.left =
+            `${pos.x}px`;
+
+        hit.style.top =
+            `${pos.y}px`;
+
+        if (particleLayer) {
+            particleLayer.appendChild(
+                hit
+            );
+        }
+
+        setTimeout(() => {
+            hit.remove();
+        }, 350);
+    }
+
+    // =====================================================
+    // EXPLOSION
+    // =====================================================
+
+    function createExplosion(
+        x,
+        y
+    ) {
+        const pos =
+            percentToPixels(x, y);
+
+        const explosion =
+            document.createElement("div");
+
+        explosion.className =
+            "explosion";
+
+        explosion.style.left =
+            `${pos.x}px`;
+
+        explosion.style.top =
+            `${pos.y}px`;
+
+        if (particleLayer) {
+            particleLayer.appendChild(
+                explosion
+            );
+        }
+
+        for (let i = 0; i < 10; i++) {
+
+            createParticle(
+                x + random(-2, 2),
+                y + random(-2, 2),
+                "fire"
+            );
+        }
+
+        setTimeout(() => {
+            explosion.remove();
+        }, 600);
+    }
+
+    // =====================================================
+    // PARTICLES
+    // =====================================================
+
+    function createParticle(
+        x,
+        y,
+        type = "normal"
+    ) {
+        if (!particleLayer) return;
+
+        const pos =
+            percentToPixels(x, y);
+
+        const particle =
+            document.createElement("div");
+
+        particle.className =
+            `particle particle-${type}`;
+
+        particle.style.left =
+            `${pos.x}px`;
+
+        particle.style.top =
+            `${pos.y}px`;
+
+        particle.style.setProperty(
+            "--px",
+            `${random(-45, 45)}px`
         );
 
-    if (!tower) return;
-
-
-    tower.classList.remove(
-        "archer-attacking"
-    );
-
-
-    /*
-    Force browser reflow so the animation
-    can trigger again.
-    */
-
-    void tower.offsetWidth;
-
-
-    tower.classList.add(
-        "archer-attacking"
-    );
-
-
-    setTimeout(() => {
-
-        tower.classList.remove(
-            "archer-attacking"
+        particle.style.setProperty(
+            "--py",
+            `${random(-60, 20)}px`
         );
 
-    }, 400);
-}
-
-
-function animateCannon() {
-
-    const cannon =
-        document.getElementById(
-            "cannonTower"
+        particleLayer.appendChild(
+            particle
         );
 
-    if (!cannon) return;
+        setTimeout(() => {
+            particle.remove();
+        }, 900);
+    }
 
+    // =====================================================
+    // DAMAGE NUMBER
+    // =====================================================
 
-    cannon.classList.remove(
-        "cannon-firing"
-    );
+    function showDamage(
+        x,
+        y,
+        damage
+    ) {
+        if (!damageLayer) return;
 
+        const pos =
+            percentToPixels(x, y);
 
-    void cannon.offsetWidth;
+        const number =
+            document.createElement("div");
 
+        number.className =
+            "damage-number";
 
-    cannon.classList.add(
-        "cannon-firing"
-    );
+        number.textContent =
+            `-${Math.round(damage)}`;
 
+        number.style.left =
+            `${pos.x}px`;
 
-    setTimeout(() => {
+        number.style.top =
+            `${pos.y}px`;
 
-        cannon.classList.remove(
+        damageLayer.appendChild(
+            number
+        );
+
+        createHitEffect(
+            x,
+            y
+        );
+
+        setTimeout(() => {
+            number.remove();
+        }, 750);
+    }
+
+    // =====================================================
+    // FIRE RAIN
+    // =====================================================
+
+    function fireRain() {
+
+        if (!gameWorld) return;
+
+        for (let i = 0; i < 28; i++) {
+
+            const x =
+                random(5, 95);
+
+            const y =
+                random(5, 65);
+
+            const pos =
+                percentToPixels(x, y);
+
+            const fire =
+                document.createElement("div");
+
+            fire.className =
+                "fire-rain-particle";
+
+            fire.style.left =
+                `${pos.x}px`;
+
+            fire.style.top =
+                `${pos.y}px`;
+
+            fire.style.animationDelay =
+                `${random(0, 500)}ms`;
+
+            if (particleLayer) {
+                particleLayer.appendChild(
+                    fire
+                );
+            }
+
+            setTimeout(() => {
+                fire.remove();
+            }, 1500);
+        }
+
+        screenShake(650);
+    }
+
+    function fireRainEffect() {
+        fireRain();
+    }
+
+    // =====================================================
+    // TOWER ANIMATION
+    // =====================================================
+
+    function animateArcherTower(
+        element
+    ) {
+        if (!element) return;
+
+        element.classList.remove(
+            "tower-attacking"
+        );
+
+        void element.offsetWidth;
+
+        element.classList.add(
+            "tower-attacking"
+        );
+
+        setTimeout(() => {
+            element.classList.remove(
+                "tower-attacking"
+            );
+        }, 500);
+    }
+
+    function animateCannon(
+        element
+    ) {
+        if (!element) return;
+
+        element.classList.remove(
             "cannon-firing"
         );
 
-    }, 350);
-}
+        void element.offsetWidth;
 
-
-/* ======================================================
-   SCREEN SHAKE
-====================================================== */
-
-function screenShake() {
-
-    if (!gameWorld) return;
-
-
-    gameWorld.classList.remove(
-        "shake"
-    );
-
-
-    void gameWorld.offsetWidth;
-
-
-    gameWorld.classList.add(
-        "shake"
-    );
-
-
-    setTimeout(() => {
-
-        gameWorld.classList.remove(
-            "shake"
+        element.classList.add(
+            "cannon-firing"
         );
 
-    }, 300);
-}
+        const rect =
+            element.getBoundingClientRect();
 
+        const worldRect =
+            gameWorld
+                ? gameWorld.getBoundingClientRect()
+                : { left: 0, top: 0 };
 
-/* ======================================================
-   MUZZLE FLASH
-====================================================== */
+        muzzleFlash(
+            rect.left -
+                worldRect.left +
+                rect.width * 0.55,
 
-function muzzleFlash(x, y) {
-
-    const flash =
-        document.createElement("div");
-
-
-    flash.style.position =
-        "absolute";
-
-    flash.style.left =
-        `${x - 15}px`;
-
-    flash.style.top =
-        `${y - 15}px`;
-
-    flash.style.width =
-        "30px";
-
-    flash.style.height =
-        "30px";
-
-    flash.style.borderRadius =
-        "50%";
-
-
-    flash.style.background =
-        "radial-gradient(circle, white 0%, #ffd166 25%, #d85d2f 45%, transparent 70%)";
-
-
-    flash.style.pointerEvents =
-        "none";
-
-    flash.style.zIndex =
-        "500";
-
-
-    particleLayer.appendChild(
-        flash
-    );
-
-
-    setTimeout(() => {
-
-        flash.remove();
-
-    }, 120);
-}
-
-
-/* ======================================================
-   DESTROY EFFECT
-====================================================== */
-
-function createDeathEffect(
-    x,
-    y,
-    type = "normal"
-) {
-
-    const amount =
-        type === "commander"
-            ? 30
-            : 12;
-
-
-    for (let i = 0; i < amount; i++) {
-
-        createParticle(
-            x,
-            y,
-            random(3, 8)
+            rect.top -
+                worldRect.top +
+                rect.height * 0.35
         );
+
+        setTimeout(() => {
+            element.classList.remove(
+                "cannon-firing"
+            );
+        }, 500);
     }
 
+    // =====================================================
+    // MUZZLE FLASH
+    // =====================================================
 
-    if (type === "commander") {
+    function muzzleFlash(
+        x,
+        y
+    ) {
+        if (!particleLayer) return;
 
+        const flash =
+            document.createElement("div");
+
+        flash.className =
+            "muzzle-flash";
+
+        flash.style.left =
+            `${x}px`;
+
+        flash.style.top =
+            `${y}px`;
+
+        particleLayer.appendChild(
+            flash
+        );
+
+        setTimeout(() => {
+            flash.remove();
+        }, 180);
+    }
+
+    // =====================================================
+    // BUILDING HIT
+    // =====================================================
+
+    function buildingHit(
+        x,
+        y
+    ) {
+        createHitEffect(
+            x,
+            y
+        );
+
+        for (let i = 0; i < 5; i++) {
+
+            createParticle(
+                x + random(-1.5, 1.5),
+                y + random(-1.5, 1.5),
+                "smoke"
+            );
+        }
+
+        screenShake(220);
+    }
+
+    // =====================================================
+    // ENEMY DEATH
+    // =====================================================
+
+    function enemyDeathEffect(
+        x,
+        y,
+        type
+    ) {
         createExplosion(
             x,
-            y,
-            90
+            y
         );
 
-        screenShake();
-    }
-}
+        for (let i = 0; i < 7; i++) {
 
+            createParticle(
+                x + random(-2, 2),
+                y + random(-2, 2),
+                type === "commander"
+                    ? "gold"
+                    : "normal"
+            );
+        }
 
-/* ======================================================
-   DEBUG HELPER
-====================================================== */
-
-function clearEffects() {
-
-    if (projectileLayer) {
-        projectileLayer.innerHTML = "";
-    }
-
-    if (particleLayer) {
-        particleLayer.innerHTML = "";
+        if (type === "commander") {
+            screenShake(500);
+        }
     }
 
-    if (damageLayer) {
-        damageLayer.innerHTML = "";
+    // =====================================================
+    // GOLD EFFECT
+    // =====================================================
+
+    function goldEffect(
+        x,
+        y,
+        amount
+    ) {
+        if (!damageLayer) return;
+
+        const pos =
+            percentToPixels(x, y);
+
+        const gold =
+            document.createElement("div");
+
+        gold.className =
+            "gold-number";
+
+        gold.textContent =
+            `+${amount}G`;
+
+        gold.style.left =
+            `${pos.x}px`;
+
+        gold.style.top =
+            `${pos.y}px`;
+
+        damageLayer.appendChild(
+            gold
+        );
+
+        setTimeout(() => {
+            gold.remove();
+        }, 800);
     }
-}
+
+    // =====================================================
+    // SELECT BUILDING
+    // =====================================================
+
+    function selectBuilding(
+        element
+    ) {
+        document
+            .querySelectorAll(
+                ".defense-building"
+            )
+            .forEach(building => {
+                building.classList.remove(
+                    "selected"
+                );
+            });
+
+        if (element) {
+            element.classList.add(
+                "selected"
+            );
+        }
+    }
+
+    // =====================================================
+    // SCREEN SHAKE
+    // =====================================================
+
+    function screenShake(
+        duration = 300
+    ) {
+        if (!gameWorld) return;
+
+        gameWorld.classList.remove(
+            "screen-shake"
+        );
+
+        void gameWorld.offsetWidth;
+
+        gameWorld.classList.add(
+            "screen-shake"
+        );
+
+        setTimeout(() => {
+            gameWorld.classList.remove(
+                "screen-shake"
+            );
+        }, duration);
+    }
+
+    // =====================================================
+    // CLEAR
+    // =====================================================
+
+    function clearEffects() {
+
+        [
+            projectileLayer,
+            particleLayer,
+            damageLayer
+        ].forEach(layer => {
+
+            if (layer) {
+                layer.innerHTML = "";
+            }
+        });
+
+        if (gameWorld) {
+            gameWorld.classList.remove(
+                "screen-shake"
+            );
+        }
+    }
+
+    // =====================================================
+    // EXPORT
+    // =====================================================
+
+    window.Effects = {
+
+        createProjectile,
+
+        fireArrow,
+        fireCannonball,
+
+        createHitEffect,
+        createExplosion,
+
+        createParticle,
+        showDamage,
+
+        fireRain,
+        fireRainEffect,
+
+        animateArcherTower,
+        animateCannon,
+
+        muzzleFlash,
+
+        buildingHit,
+        enemyDeathEffect,
+        createDeathEffect:
+            enemyDeathEffect,
+
+        goldEffect,
+
+        selectBuilding,
+
+        screenShake,
+
+        clearEffects
+    };
+
+})();
