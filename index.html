@@ -1,76 +1,183 @@
-
-    <div class="wave">WAVE <b id="waveText">1</b></div>
-    <div class="small">NEXT ASSAULT</div>
-    <div class="bar thin"><i id="waveBar"></i></div>
-  </div>
-
-  <div class="hud-right panel">
-    <div>GOLD <b id="goldText">0</b></div>
-    <div>SUPPLIES <b id="suppliesText">60</b></div>
-    <div>SCORE <b id="scoreText">0</b></div>
-  </div>
-</div>
-
-<div id="banner"></div>
-
-<div id="controls">
-  <button data-action="archer">🏹 ARCHER <small id="archerCost">35G</small></button>
-  <button data-action="cannon">💥 CANNON <small id="cannonCost">90G</small></button>
-  <button data-action="repair">🧱 REPAIR <small id="repairCost">40G</small></button>
-  <button data-action="upgrade">⚔ UPGRADE <small id="upgradeCost">80G</small></button>
-  <button data-action="ability">🔥 FIRE RAIN <small id="abilityCost">35S</small></button>
-</div>
-
-<div id="start" class="overlay">
-  <div class="modal">
-    <div class="eyebrow">BYZANTINE DEFENSE COMMAND</div>
-    <h1>SIEGE</h1>
-    <h2>CONSTANTINOPLE</h2>
-    <p>1453. The Ottoman army has breached the outer defenses. You command the last line of the city.</p>
-    <ul>
-      <li>Tap/click anywhere to fire your crossbow.</li>
-      <li>Spend gold to recruit defenders and repair the walls.</li>
-      <li>Survive the waves. Every 5th wave contains a commander.</li>
-      <li>On mobile, landscape mode is recommended.</li>
-    </ul>
-    <button id="startBtn" class="primary">ENTER THE SIEGE</button>
-  </div>
-</div>
-
-<div id="gameover" class="overlay hidden">
-  <div class="modal">
-    <div class="eyebrow">THE LAST DAY</div>
-    <h1 id="endingTitle">THE CITY HAS FALLEN</h1>
-    <p id="endingText"></p>
-    <div class="results">
-      <span>WAVE <b id="finalWave">0</b></span>
-      <span>SCORE <b id="finalScore">0</b></span>
-      <span>GOLD <b id="finalGold">0</b></span>
-    </div>
-    <button id="restartBtn" class="primary">RISE AGAIN</button>
-  </div>
-</div>
-
-<script type="module" src="js/main.js"></script>
-</body>
-</html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-<meta name="theme-color" content="#080a0e">
-<title>Siege of Constantinople — 1453</title>
-<link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-<canvas id="game"></canvas>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#080a0e">
 
-<div id="hud">
-  <div class="hud-left panel">
-    <div class="brand">SIEGE OF CONSTANTINOPLE</div>
-    <div class="date">29 MAY 1453 • FINAL STAND</div>
-    <div class="stat-row"><span>CITY</span><b id="cityHpText">100 / 100</b></div>
-    <div class="bar"><i id="cityHpBar"></i></div>
+  <title>Siege of Constantinople — 1453</title>
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <!-- GAME CANVAS -->
+  <canvas id="game"></canvas>
+
+
+  <!-- HUD -->
+  <div id="hud">
+
+    <!-- LEFT HUD -->
+    <div class="hud-left panel">
+      <div class="brand">SIEGE OF CONSTANTINOPLE</div>
+      <div class="date">29 MAY 1453 • FINAL STAND</div>
+
+      <div class="stat-row">
+        <span>CITY</span>
+        <b id="cityHpText">100 / 100</b>
+      </div>
+
+      <div class="bar">
+        <i id="cityHpBar"></i>
+      </div>
+
+      <div class="wave">
+        WAVE <b id="waveText">1</b>
+      </div>
+
+      <div class="small">NEXT ASSAULT</div>
+
+      <div class="bar thin">
+        <i id="waveBar"></i>
+      </div>
+    </div>
+
+
+    <!-- RIGHT HUD -->
+    <div class="hud-right panel">
+
+      <div>
+        GOLD <b id="goldText">0</b>
+      </div>
+
+      <div>
+        SUPPLIES <b id="suppliesText">60</b>
+      </div>
+
+      <div>
+        SCORE <b id="scoreText">0</b>
+      </div>
+
+    </div>
+
   </div>
 
-  <div class="hud-center panel">
+
+  <!-- BANNER -->
+  <div id="banner"></div>
+
+
+  <!-- CONTROLS -->
+  <div id="controls">
+
+    <button data-action="archer">
+      🏹 ARCHER
+      <small id="archerCost">35G</small>
+    </button>
+
+    <button data-action="cannon">
+      💥 CANNON
+      <small id="cannonCost">90G</small>
+    </button>
+
+    <button data-action="repair">
+      🧱 REPAIR
+      <small id="repairCost">40G</small>
+    </button>
+
+    <button data-action="upgrade">
+      ⚔ UPGRADE
+      <small id="upgradeCost">80G</small>
+    </button>
+
+    <button data-action="ability">
+      🔥 FIRE RAIN
+      <small id="abilityCost">35S</small>
+    </button>
+
+  </div>
+
+
+  <!-- START SCREEN -->
+  <div id="start" class="overlay">
+
+    <div class="modal">
+
+      <div class="eyebrow">
+        BYZANTINE DEFENSE COMMAND
+      </div>
+
+      <h1>SIEGE</h1>
+      <h2>CONSTANTINOPLE</h2>
+
+      <p>
+        1453. The Ottoman army has breached the outer defenses.
+        You command the last line of the city.
+      </p>
+
+      <ul>
+        <li>Tap/click anywhere to fire your crossbow.</li>
+        <li>Spend gold to recruit defenders and repair the walls.</li>
+        <li>Survive the waves. Every 5th wave contains a commander.</li>
+        <li>On mobile, landscape mode is recommended.</li>
+      </ul>
+
+      <button id="startBtn" class="primary">
+        ENTER THE SIEGE
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- GAME OVER SCREEN -->
+  <div id="gameover" class="overlay hidden">
+
+    <div class="modal">
+
+      <div class="eyebrow">
+        THE LAST DAY
+      </div>
+
+      <h1 id="endingTitle">
+        THE CITY HAS FALLEN
+      </h1>
+
+      <p id="endingText"></p>
+
+      <div class="results">
+
+        <span>
+          WAVE
+          <b id="finalWave">0</b>
+        </span>
+
+        <span>
+          SCORE
+          <b id="finalScore">0</b>
+        </span>
+
+        <span>
+          GOLD
+          <b id="finalGold">0</b>
+        </span>
+
+      </div>
+
+      <button id="restartBtn" class="primary">
+        RISE AGAIN
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- MAIN JAVASCRIPT -->
+  <script type="module" src="js/main.js"></script>
+
+</body>
+</html>
