@@ -1,85 +1,118 @@
-/* =========================================================
-   SIEGE OF CONSTANTINOPLE
-   WAVE SYSTEM
-   ========================================================= */
+(function () {
+    "use strict";
 
-let currentWave = 0;
-let waveActive = false;
-let waveEnemiesLeft = 0;
-let waveSpawned = 0;
-let waveTimer = null;
+    // =====================================================
+    // WAVE SYSTEM
+    // =====================================================
 
-// =========================================================
-// WAVE DIFFICULTY
-// =========================================================
+    let currentWave = 0;
+    let waveActive = false;
 
-function getWaveConfig(wave) {
+    let normalSpawned = 0;
+    let totalNormalEnemies = 0;
 
-    // Jumlah musuh dasar
-    const totalEnemies =
-        5 + Math.floor(wave * 1.8);
+    let spawnTimer = null;
+    let commanderSpawned = false;
 
-    // Jeda spawn makin cepat seiring wave
-    const spawnDelay =
-        Math.max(350, 1100 - wave * 35);
-
-    // Setiap 5 wave ada Commander
-    const commander =
-        wave >= 5 && wave % 5 === 0;
-
-    return {
-        totalEnemies,
-        spawnDelay,
-        commander
-    };
-}
+    let waveGeneration = 0;
 
 
-// =========================================================
-// RANDOM ENEMY TYPE
-// =========================================================
+    // =====================================================
+    // WAVE CONFIG
+    // =====================================================
 
-function getEnemyType(wave) {
+    function getWaveConfig(wave) {
 
-    const roll = Math.random();
+        const total =
+            5 +
+            Math.floor(wave * 1.8);
 
-    /*
-        WAVE 1-2
-        Mayoritas Soldier
-    */
+        const spawnDelay =
+            Math.max(
+                300,
+                1100 -
+                wave * 35
+            );
 
-    if (wave < 3) {
-        return "soldier";
+        const hasCommander =
+            wave % 5 === 0;
+
+        return {
+
+            totalEnemies:
+                total,
+
+            spawnDelay,
+
+            hasCommander,
+
+            commanderDelay:
+                1800
+        };
     }
 
 
-    /*
-        WAVE 3+
-        Archer mulai muncul
-    */
+    // =====================================================
+    // ENEMY TYPE
+    // =====================================================
 
-    if (wave < 4) {
+    function getEnemyType(
+        wave
+    ) {
 
-        if (roll < 0.15) {
-            return "archer";
+        const roll =
+            Math.random();
+
+        // ---------------------------------------------
+        // EARLY GAME
+        // ---------------------------------------------
+
+        if (wave <= 2) {
+            return "soldier";
         }
 
-        return "soldier";
-    }
+
+        // ---------------------------------------------
+        // WAVE 3+
+        // ---------------------------------------------
+
+        if (wave === 3) {
+
+            if (roll < 0.15) {
+                return "archer";
+            }
+
+            return "soldier";
+        }
 
 
-    /*
-        WAVE 4+
-        Janissary mulai muncul
-    */
+        // ---------------------------------------------
+        // WAVE 4+
+        // ---------------------------------------------
 
-    if (wave < 5) {
+        if (wave === 4) {
 
-        if (roll < 0.10) {
+            if (roll < 0.10) {
+                return "janissary";
+            }
+
+            if (roll < 0.25) {
+                return "archer";
+            }
+
+            return "soldier";
+        }
+
+
+        // ---------------------------------------------
+        // WAVE 5+
+        // ---------------------------------------------
+
+        if (roll < 0.12) {
             return "janissary";
         }
 
-        if (roll < 0.25) {
+        if (roll < 0.30) {
             return "archer";
         }
 
@@ -87,143 +120,199 @@ function getEnemyType(wave) {
     }
 
 
-    /*
-        WAVE 5+
-        Semua tipe normal
-    */
+    // =====================================================
+    // START WAVE
+    // =====================================================
 
-    if (roll < 0.10) {
-        return "janissary";
-    }
+    function startWave() {
 
-    if (roll < 0.28) {
-        return "archer";
-    }
-
-    return "soldier";
-}
-
-
-// =========================================================
-// SPAWN ENEMY
-// =========================================================
-
-function spawnEnemy(type, wave) {
-
-    if (typeof Enemy === "undefined") {
-        console.error("Enemy class belum tersedia!");
-        return null;
-    }
-
-    const enemy = new Enemy(type, wave);
-
-    // Posisi spawn dari sisi kanan battlefield
-    enemy.x = 100 + Math.random() * 8;
-
-    // Sedikit variasi posisi vertikal
-    enemy.y =
-        58 +
-        Math.random() * 10;
-
-    // Tambahkan ke array global
-    if (typeof enemies !== "undefined") {
-        enemies.push(enemy);
-    }
-
-    return enemy;
-}
-
-
-// =========================================================
-// SPAWN COMMANDER
-// =========================================================
-
-function spawnCommander(wave) {
-
-    const commander = spawnEnemy(
-        "commander",
-        wave
-    );
-
-    if (commander) {
-
-        console.log(
-            `⚔️ COMMANDER muncul di Wave ${wave}!`
-        );
-
-        // Efek kemunculan
-        if (typeof createParticle === "function") {
-
-            for (let i = 0; i < 18; i++) {
-
-                createParticle(
-                    88 + Math.random() * 8,
-                    55 + Math.random() * 10,
-                    "🔥"
-                );
-            }
+        if (waveActive) {
+            return false;
         }
-    }
 
-    return commander;
-}
+        if (
+            window.Game &&
+            window.Game.gameOver
+        ) {
+            return false;
+        }
+
+        if (
+            window.Game &&
+            window.Game.victory
+        ) {
+            return false;
+        }
 
 
-// =========================================================
-// START WAVE
-// =========================================================
+        // ---------------------------------------------
+        // MAX WAVE
+        // ---------------------------------------------
 
-function startWave() {
+        const maxWaves =
+            window.Game
+                ? window.Game.maxWaves
+                : 20;
 
-    if (waveActive) {
-        return;
-    }
+        if (
+            currentWave >=
+            maxWaves
+        ) {
 
-    currentWave++;
+            if (
+                window.Game &&
+                typeof window.Game.win === "function"
+            ) {
 
-    waveActive = true;
+                window.Game.win();
+            }
 
-    waveSpawned = 0;
+            return false;
+        }
 
-    const config =
-        getWaveConfig(currentWave);
 
-    waveEnemiesLeft =
-        config.totalEnemies;
+        // ---------------------------------------------
+        // NEW WAVE
+        // ---------------------------------------------
 
-    console.log(
-        `🌊 WAVE ${currentWave} DIMULAI`
-    );
+        currentWave++;
 
-    // Update HUD
-    updateWaveUI();
+        waveGeneration++;
 
-    // Commander wave
-    if (config.commander) {
+        const generation =
+            waveGeneration;
 
-        // Commander muncul setelah beberapa musuh
-        setTimeout(() => {
-
-            spawnCommander(
+        const config =
+            getWaveConfig(
                 currentWave
             );
 
-        }, 1800);
+        waveActive = true;
+
+        normalSpawned = 0;
+
+        totalNormalEnemies =
+            config.totalEnemies;
+
+        commanderSpawned = false;
+
+
+        // ---------------------------------------------
+        // UI
+        // ---------------------------------------------
+
+        updateWaveUI();
+
+        if (
+            window.Game &&
+            typeof window.Game.notify === "function"
+        ) {
+
+            if (config.hasCommander) {
+
+                window.Game.notify(
+                    `⚠ COMMANDER INCOMING — WAVE ${currentWave}`
+                );
+
+            } else {
+
+                window.Game.notify(
+                    `WAVE ${currentWave} — DEFEND THE WALLS`
+                );
+            }
+        }
+
+
+        // ---------------------------------------------
+        // COMMANDER
+        // ---------------------------------------------
+
+        if (config.hasCommander) {
+
+            setTimeout(() => {
+
+                if (
+                    generation !==
+                    waveGeneration
+                ) {
+                    return;
+                }
+
+                if (!waveActive) {
+                    return;
+                }
+
+                spawnCommander();
+
+            }, config.commanderDelay);
+        }
+
+
+        // ---------------------------------------------
+        // NORMAL ENEMIES
+        // ---------------------------------------------
+
+        clearInterval(
+            spawnTimer
+        );
+
+        spawnTimer =
+            setInterval(() => {
+
+                if (
+                    generation !==
+                    waveGeneration
+                ) {
+
+                    clearInterval(
+                        spawnTimer
+                    );
+
+                    return;
+                }
+
+                if (!waveActive) {
+
+                    clearInterval(
+                        spawnTimer
+                    );
+
+                    return;
+                }
+
+                if (
+                    normalSpawned >=
+                    totalNormalEnemies
+                ) {
+
+                    clearInterval(
+                        spawnTimer
+                    );
+
+                    return;
+                }
+
+                spawnOneEnemy();
+
+            }, config.spawnDelay);
+
+        // First enemy immediately
+        spawnOneEnemy();
+
+        return true;
     }
 
 
-    // Spawn musuh satu per satu
-    waveTimer = setInterval(() => {
+    // =====================================================
+    // SPAWN ONE
+    // =====================================================
+
+    function spawnOneEnemy() {
 
         if (
-            waveSpawned >=
-            config.totalEnemies
+            normalSpawned >=
+            totalNormalEnemies
         ) {
-
-            clearInterval(waveTimer);
-
-            waveTimer = null;
-
             return;
         }
 
@@ -232,301 +321,392 @@ function startWave() {
                 currentWave
             );
 
-        spawnEnemy(
-            type,
-            currentWave
-        );
+        if (
+            window.Units &&
+            typeof window.Units.spawnEnemy === "function"
+        ) {
 
-        waveSpawned++;
+            window.Units.spawnEnemy(
+                type,
+                currentWave
+            );
+        }
 
-    }, config.spawnDelay);
-}
+        normalSpawned++;
 
+        if (
+            normalSpawned >=
+            totalNormalEnemies
+        ) {
 
-// =========================================================
-// WAVE COMPLETE
-// =========================================================
-
-function checkWaveComplete() {
-
-    if (!waveActive) {
-        return;
+            clearInterval(
+                spawnTimer
+            );
+        }
     }
 
-    const aliveEnemies =
-        typeof enemies !== "undefined"
-            ? enemies.length
-            : 0;
 
-    /*
-        Wave selesai jika:
-        - Semua musuh sudah spawn
-        - Tidak ada musuh hidup
-    */
+    // =====================================================
+    // COMMANDER
+    // =====================================================
 
-    if (
-        waveSpawned >=
-            getWaveConfig(currentWave).totalEnemies
-        &&
-        aliveEnemies === 0
-    ) {
+    function spawnCommander() {
+
+        if (commanderSpawned) {
+            return;
+        }
+
+        commanderSpawned = true;
+
+        if (
+            window.Units &&
+            typeof window.Units.spawnEnemy === "function"
+        ) {
+
+            const commander =
+                window.Units.spawnEnemy(
+                    "commander",
+                    currentWave
+                );
+
+            if (commander) {
+
+                commander.x =
+                    98;
+
+                commander.y =
+                    60;
+
+                commander.render();
+            }
+        }
+
+        if (
+            window.Effects &&
+            typeof window.Effects.screenShake === "function"
+        ) {
+
+            window.Effects.screenShake(
+                700
+            );
+        }
+
+        if (
+            window.Game &&
+            typeof window.Game.notify === "function"
+        ) {
+
+            window.Game.notify(
+                "☠ COMMANDER HAS ENTERED THE BATTLEFIELD"
+            );
+        }
+    }
+
+
+    // =====================================================
+    // CHECK WAVE COMPLETE
+    // =====================================================
+
+    function checkWaveComplete() {
+
+        if (!waveActive) {
+            return;
+        }
+
+        if (
+            normalSpawned <
+            totalNormalEnemies
+        ) {
+            return;
+        }
+
+        const aliveEnemies =
+            window.enemies
+                ? window.enemies.filter(
+                    enemy =>
+                        enemy &&
+                        enemy.alive
+                )
+                : [];
+
+        if (
+            aliveEnemies.length >
+            0
+        ) {
+            return;
+        }
+
+
+        // ---------------------------------------------
+        // COMPLETE
+        // ---------------------------------------------
 
         waveActive = false;
 
-        waveEnemiesLeft = 0;
-
-        console.log(
-            `🏆 WAVE ${currentWave} SELESAI`
+        clearInterval(
+            spawnTimer
         );
 
-        updateWaveUI();
+        spawnTimer = null;
 
-        // Bonus gold
-        if (typeof gold !== "undefined") {
 
-            gold +=
-                50 +
-                currentWave * 10;
+        // ---------------------------------------------
+        // BONUS
+        // ---------------------------------------------
+
+        const bonus =
+            50 +
+            currentWave * 15;
+
+        if (
+            window.Game &&
+            typeof window.Game.addGold === "function"
+        ) {
+
+            window.Game.addGold(
+                bonus
+            );
         }
 
-        updateGoldUI();
 
-        // Bonus kecil antar wave
-        showWaveComplete();
-    }
-}
+        // ---------------------------------------------
+        // LAST WAVE
+        // ---------------------------------------------
 
+        const maxWaves =
+            window.Game
+                ? window.Game.maxWaves
+                : 20;
 
-// =========================================================
-// WAVE COMPLETE MESSAGE
-// =========================================================
+        if (
+            currentWave >=
+            maxWaves
+        ) {
 
-function showWaveComplete() {
+            setTimeout(() => {
 
-    const message =
-        document.createElement("div");
+                if (
+                    window.Game &&
+                    typeof window.Game.win === "function"
+                ) {
 
-    message.className =
-        "wave-complete-message";
+                    window.Game.win();
+                }
 
-    message.innerHTML = `
-        <div class="wave-complete-title">
-            WAVE ${currentWave} CLEARED
-        </div>
+            }, 1000);
 
-        <div class="wave-complete-sub">
-            Constantinople survives...
-        </div>
-
-        <div class="wave-complete-bonus">
-            +${50 + currentWave * 10} GOLD
-        </div>
-    `;
-
-    document.body.appendChild(message);
+            return;
+        }
 
 
-    setTimeout(() => {
+        // ---------------------------------------------
+        // WAVE COMPLETE UI
+        // ---------------------------------------------
 
-        message.classList.add("show");
+        if (
+            window.Game &&
+            typeof window.Game.notify === "function"
+        ) {
 
-    }, 50);
+            window.Game.notify(
+                `WAVE ${currentWave} CLEARED! +${bonus}G`
+            );
+        }
 
-
-    setTimeout(() => {
-
-        message.classList.remove("show");
-
-        setTimeout(() => {
-            message.remove();
-        }, 500);
-
-    }, 2200);
-}
-
-
-// =========================================================
-// UPDATE WAVE HUD
-// =========================================================
-
-function updateWaveUI() {
-
-    const waveElement =
-        document.getElementById("waveValue");
-
-    if (waveElement) {
-
-        waveElement.textContent =
-            currentWave;
-    }
-}
-
-
-// =========================================================
-// DIFFICULTY INFORMATION
-// =========================================================
-
-function getDifficultyText(wave) {
-
-    if (wave <= 2) {
-        return "EASY";
+        updateWaveUI();
     }
 
-    if (wave <= 4) {
-        return "NORMAL";
+
+    // =====================================================
+    // DIFFICULTY
+    // =====================================================
+
+    function getDifficultyMultiplier(
+        wave
+    ) {
+
+        return {
+
+            hp:
+                1 +
+                Math.max(
+                    0,
+                    wave - 1
+                ) * 0.08,
+
+            damage:
+                1 +
+                Math.max(
+                    0,
+                    wave - 1
+                ) * 0.06,
+
+            speed:
+                1 +
+                Math.max(
+                    0,
+                    wave - 1
+                ) * 0.01
+        };
     }
 
-    if (wave <= 7) {
-        return "HARD";
+
+    // =====================================================
+    // UPDATE WAVE UI
+    // =====================================================
+
+    function updateWaveUI() {
+
+        const waveDisplay =
+            document.getElementById(
+                "waveDisplay"
+            );
+
+        if (waveDisplay) {
+
+            waveDisplay.textContent =
+                currentWave;
+        }
+
+        const button =
+            document.getElementById(
+                "startWaveButton"
+            );
+
+        if (!button) {
+            return;
+        }
+
+        if (waveActive) {
+
+            button.textContent =
+                "⚔ WAVE IN PROGRESS";
+
+            button.disabled =
+                true;
+
+        } else if (
+            currentWave >=
+            (
+                window.Game
+                    ? window.Game.maxWaves
+                    : 20
+            )
+        ) {
+
+            button.textContent =
+                "SIEGE COMPLETE";
+
+            button.disabled =
+                true;
+
+        } else {
+
+            button.textContent =
+                currentWave === 0
+                    ? "START WAVE"
+                    : "NEXT WAVE";
+
+            button.disabled =
+                false;
+        }
     }
 
-    if (wave <= 10) {
-        return "VERY HARD";
-    }
 
-    if (wave <= 15) {
-        return "NIGHTMARE";
-    }
+    // =====================================================
+    // RESET
+    // =====================================================
 
-    return "HELL";
-}
+    function reset() {
 
-
-// =========================================================
-// WAVE DIFFICULTY MULTIPLIER
-// =========================================================
-
-function getDifficultyMultiplier(wave) {
-
-    /*
-        Setiap wave:
-        HP +8%
-        Damage +6%
-        Speed +1%
-    */
-
-    return {
-        hp:
-            1 +
-            (wave - 1) * 0.08,
-
-        damage:
-            1 +
-            (wave - 1) * 0.06,
-
-        speed:
-            1 +
-            (wave - 1) * 0.01
-    };
-}
-
-
-// =========================================================
-// RESET WAVES
-// =========================================================
-
-function resetWaves() {
-
-    if (waveTimer) {
+        waveGeneration++;
 
         clearInterval(
-            waveTimer
+            spawnTimer
         );
 
-        waveTimer = null;
+        spawnTimer = null;
+
+        currentWave = 0;
+
+        waveActive = false;
+
+        normalSpawned = 0;
+
+        totalNormalEnemies = 0;
+
+        commanderSpawned = false;
+
+        updateWaveUI();
     }
 
-    currentWave = 0;
 
-    waveActive = false;
+    // =====================================================
+    // GETTERS
+    // =====================================================
 
-    waveEnemiesLeft = 0;
+    function getCurrentWave() {
+        return currentWave;
+    }
 
-    waveSpawned = 0;
+    function isWaveActive() {
+        return waveActive;
+    }
 
-    updateWaveUI();
-}
 
+    // =====================================================
+    // GLOBAL CHECK LOOP
+    // =====================================================
 
-// =========================================================
-// NEXT WAVE COUNTDOWN
-// =========================================================
-
-function waveCountdown(seconds = 3) {
-
-    let count = seconds;
-
-    const countdown =
-        document.createElement("div");
-
-    countdown.className =
-        "wave-countdown";
-
-    document.body.appendChild(
-        countdown
+    setInterval(
+        checkWaveComplete,
+        400
     );
 
 
-    const timer =
-        setInterval(() => {
+    // =====================================================
+    // EXPORT
+    // =====================================================
 
-            if (count <= 0) {
+    window.Waves = {
 
-                clearInterval(timer);
+        get currentWave() {
+            return currentWave;
+        },
 
-                countdown.remove();
+        get active() {
+            return waveActive;
+        },
 
-                startWave();
+        get normalSpawned() {
+            return normalSpawned;
+        },
 
-                return;
-            }
+        get totalNormalEnemies() {
+            return totalNormalEnemies;
+        },
 
-            countdown.innerHTML = `
-                <div>INCOMING WAVE</div>
-                <strong>${count}</strong>
-            `;
+        getWaveConfig,
 
-            count--;
+        getEnemyType,
 
-        }, 1000);
-}
+        getDifficultyMultiplier,
 
+        startWave,
 
-// =========================================================
-// AUTO CHECK WAVE
-// =========================================================
+        spawnOneEnemy,
 
-setInterval(() => {
+        spawnCommander,
 
-    checkWaveComplete();
+        checkWaveComplete,
 
-}, 500);
+        updateWaveUI,
 
+        reset,
 
-// =========================================================
-// EXPORT / GLOBAL ACCESS
-// =========================================================
+        getCurrentWave,
 
-window.currentWave =
-    currentWave;
+        isWaveActive
+    };
 
-window.startWave =
-    startWave;
-
-window.waveCountdown =
-    waveCountdown;
-
-window.getWaveConfig =
-    getWaveConfig;
-
-window.getEnemyType =
-    getEnemyType;
-
-window.getDifficultyMultiplier =
-    getDifficultyMultiplier;
-
-window.getDifficultyText =
-    getDifficultyText;
-
-window.resetWaves =
-    resetWaves;
+})();
