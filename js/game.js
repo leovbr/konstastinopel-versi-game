@@ -1,1618 +1,1307 @@
-"use strict";
+(function () {
+    "use strict";
 
-/*
-=========================================================
- SIEGE OF CONSTANTINOPLE V2
- GAME ENGINE
-=========================================================
-*/
+    // =====================================================
+    // GAME STATE
+    // =====================================================
 
-window.Game = {
+    const Game = {
 
-    /* =================================================
-       GAME STATE
-    ================================================= */
+        running: false,
+        paused: false,
+        gameOver: false,
+        victory: false,
 
-    running: false,
-    paused: false,
-    gameOver: false,
-    victory: false,
+        cityHP: 1000,
+        maxCityHP: 1000,
 
-    cityHP: 100,
-    maxCityHP: 100,
+        gold: 500,
+        supplies: 60,
 
-    gold: 120,
-    supplies: 60,
+        kills: 0,
+        score: 0,
 
-    kills: 0,
-    score: 0,
+        upgradeLevel: 1,
 
-    lastTime: 0,
+        fireRainCooldown: 0,
+        fireRainMaxCooldown: 12,
 
-    animationFrame: null,
+        maxWaves: 20,
 
-    fireRainCooldown: 0,
+        lastTime: 0,
+        animationFrame: null,
 
-    upgradeLevel: 1,
-
-    maxWaves: 20,
+        elements: {},
 
 
-    /* =================================================
-       INITIALIZE
-    ================================================= */
+        // =================================================
+        // INITIALIZE
+        // =================================================
 
-    init() {
+        init() {
 
-        this.cacheElements();
+            this.cacheElements();
 
-        this.bindButtons();
+            this.bindEvents();
 
-        this.updateHUD();
+            this.updateHUD();
 
-    },
-
-
-    /* =================================================
-       CACHE DOM
-    ================================================= */
-
-    cacheElements() {
-
-        this.startScreen =
-            document.getElementById(
+            this.showScreen(
                 "startScreen"
             );
 
-        this.gameScreen =
-            document.getElementById(
+            console.log(
+                "⚔ Constantinople V2 initialized"
+            );
+        },
+
+
+        // =================================================
+        // CACHE DOM
+        // =================================================
+
+        cacheElements() {
+
+            this.elements = {
+
+                startScreen:
+                    document.getElementById(
+                        "startScreen"
+                    ),
+
+                gameScreen:
+                    document.getElementById(
+                        "gameScreen"
+                    ),
+
+                gameOverScreen:
+                    document.getElementById(
+                        "gameOverScreen"
+                    ),
+
+                victoryScreen:
+                    document.getElementById(
+                        "victoryScreen"
+                    ),
+
+                startButton:
+                    document.getElementById(
+                        "startButton"
+                    ),
+
+                restartButton:
+                    document.getElementById(
+                        "restartButton"
+                    ),
+
+                victoryRestartButton:
+                    document.getElementById(
+                        "victoryRestartButton"
+                    ),
+
+                startWaveButton:
+                    document.getElementById(
+                        "startWaveButton"
+                    ),
+
+                archerButton:
+                    document.getElementById(
+                        "archerButton"
+                    ),
+
+                cannonButton:
+                    document.getElementById(
+                        "cannonButton"
+                    ),
+
+                fireRainButton:
+                    document.getElementById(
+                        "fireRainButton"
+                    ),
+
+                upgradeButton:
+                    document.getElementById(
+                        "upgradeButton"
+                    ),
+
+                waveDisplay:
+                    document.getElementById(
+                        "waveDisplay"
+                    ),
+
+                goldDisplay:
+                    document.getElementById(
+                        "goldDisplay"
+                    ),
+
+                killDisplay:
+                    document.getElementById(
+                        "killDisplay"
+                    ),
+
+                scoreDisplay:
+                    document.getElementById(
+                        "scoreDisplay"
+                    ),
+
+                cityHpBar:
+                    document.getElementById(
+                        "cityHpBar"
+                    ),
+
+                cityHpText:
+                    document.getElementById(
+                        "cityHpText"
+                    ),
+
+                selectionTitle:
+                    document.getElementById(
+                        "selectionTitle"
+                    ),
+
+                selectionDescription:
+                    document.getElementById(
+                        "selectionDescription"
+                    ),
+
+                fireRainStatus:
+                    document.getElementById(
+                        "fireRainStatus"
+                    ),
+
+                upgradeCost:
+                    document.getElementById(
+                        "upgradeCost"
+                    ),
+
+                finalWave:
+                    document.getElementById(
+                        "finalWave"
+                    ),
+
+                finalKills:
+                    document.getElementById(
+                        "finalKills"
+                    ),
+
+                finalScore:
+                    document.getElementById(
+                        "finalScore"
+                    ),
+
+                victoryWave:
+                    document.getElementById(
+                        "victoryWave"
+                    ),
+
+                victoryKills:
+                    document.getElementById(
+                        "victoryKills"
+                    ),
+
+                victoryScore:
+                    document.getElementById(
+                        "victoryScore"
+                    )
+            };
+        },
+
+
+        // =================================================
+        // EVENTS
+        // =================================================
+
+        bindEvents() {
+
+            const e =
+                this.elements;
+
+
+            if (e.startButton) {
+
+                e.startButton.onclick =
+                    () => this.start();
+            }
+
+
+            if (e.restartButton) {
+
+                e.restartButton.onclick =
+                    () => this.restart();
+            }
+
+
+            if (
+                e.victoryRestartButton
+            ) {
+
+                e.victoryRestartButton.onclick =
+                    () => this.restart();
+            }
+
+
+            if (e.startWaveButton) {
+
+                e.startWaveButton.onclick =
+                    () => this.startWave();
+            }
+
+
+            if (e.archerButton) {
+
+                e.archerButton.onclick =
+                    () => this.buyArcher();
+            }
+
+
+            if (e.cannonButton) {
+
+                e.cannonButton.onclick =
+                    () => this.buyCannon();
+            }
+
+
+            if (e.fireRainButton) {
+
+                e.fireRainButton.onclick =
+                    () => this.fireRain();
+            }
+
+
+            if (e.upgradeButton) {
+
+                e.upgradeButton.onclick =
+                    () => this.upgradeDefenses();
+            }
+        },
+
+
+        // =================================================
+        // START
+        // =================================================
+
+        start() {
+
+            if (this.running) {
+                return;
+            }
+
+            this.running = true;
+            this.paused = false;
+            this.gameOver = false;
+            this.victory = false;
+
+            this.cityHP = this.maxCityHP;
+
+            this.gold = 500;
+
+            this.supplies = 60;
+
+            this.kills = 0;
+
+            this.score = 0;
+
+            this.upgradeLevel = 1;
+
+            this.fireRainCooldown = 0;
+
+
+            // ---------------------------------------------
+            // CLEAR OLD GAME
+            // ---------------------------------------------
+
+            if (
+                window.Waves &&
+                typeof window.Waves.reset === "function"
+            ) {
+
+                window.Waves.reset();
+            }
+
+
+            if (
+                window.Units &&
+                typeof window.Units.clearUnits === "function"
+            ) {
+
+                window.Units.clearUnits();
+            }
+
+
+            if (
+                window.Units &&
+                typeof window.Units.createDefaultDefenses === "function"
+            ) {
+
+                window.Units.createDefaultDefenses();
+            }
+
+
+            if (
+                window.Effects &&
+                typeof window.Effects.clearEffects === "function"
+            ) {
+
+                window.Effects.clearEffects();
+            }
+
+
+            // ---------------------------------------------
+            // SHOW GAME
+            // ---------------------------------------------
+
+            this.showScreen(
                 "gameScreen"
             );
 
-        this.gameOverScreen =
-            document.getElementById(
-                "gameOverScreen"
+            this.updateHUD();
+
+
+            // ---------------------------------------------
+            // START LOOP
+            // ---------------------------------------------
+
+            this.lastTime =
+                performance.now();
+
+            cancelAnimationFrame(
+                this.animationFrame
             );
 
-        this.victoryScreen =
-            document.getElementById(
-                "victoryScreen"
-            );
-
-
-        this.waveDisplay =
-            document.getElementById(
-                "waveDisplay"
-            );
-
-        this.goldDisplay =
-            document.getElementById(
-                "goldDisplay"
-            );
-
-        this.cityHPDisplay =
-            document.getElementById(
-                "cityHP"
-            );
-
-        this.killsDisplay =
-            document.getElementById(
-                "killsDisplay"
-            );
-
-        this.scoreDisplay =
-            document.getElementById(
-                "scoreDisplay"
-            );
-
-        this.suppliesDisplay =
-            document.getElementById(
-                "suppliesDisplay"
+            this.loop(
+                this.lastTime
             );
 
 
-        this.world =
-            document.getElementById(
-                "gameWorld"
-            );
-
-        this.battlefield =
-            document.getElementById(
-                "battlefield"
-            );
-
-
-        this.waveButton =
-            document.getElementById(
-                "startWaveBtn"
-            );
-
-        this.archerButton =
-            document.getElementById(
-                "buyArcherBtn"
-            );
-
-        this.cannonButton =
-            document.getElementById(
-                "buyCannonBtn"
-            );
-
-        this.fireRainButton =
-            document.getElementById(
-                "fireRainBtn"
-            );
-
-        this.upgradeButton =
-            document.getElementById(
-                "upgradeBtn"
-            );
-
-    },
-
-
-    /* =================================================
-       BUTTONS
-    ================================================= */
-
-    bindButtons() {
-
-        /*
-        START GAME
-        */
-
-        const startBtn =
-            document.getElementById(
-                "startGameBtn"
-            );
-
-        if (startBtn) {
-
-            startBtn.addEventListener(
-                "click",
-                () => {
-
-                    this.start();
-
-                }
-            );
-
-        }
-
-
-        /*
-        START WAVE
-        */
-
-        if (this.waveButton) {
-
-            this.waveButton.addEventListener(
-                "click",
-                () => {
-
-                    this.startWave();
-
-                }
-            );
-
-        }
-
-
-        /*
-        ARCHER
-        */
-
-        if (this.archerButton) {
-
-            this.archerButton.addEventListener(
-                "click",
-                () => {
-
-                    this.buyArcher();
-
-                }
-            );
-
-        }
-
-
-        /*
-        CANNON
-        */
-
-        if (this.cannonButton) {
-
-            this.cannonButton.addEventListener(
-                "click",
-                () => {
-
-                    this.buyCannon();
-
-                }
-            );
-
-        }
-
-
-        /*
-        FIRE RAIN
-        */
-
-        if (this.fireRainButton) {
-
-            this.fireRainButton.addEventListener(
-                "click",
-                () => {
-
-                    this.fireRain();
-
-                }
-            );
-
-        }
-
-
-        /*
-        UPGRADE
-        */
-
-        if (this.upgradeButton) {
-
-            this.upgradeButton.addEventListener(
-                "click",
-                () => {
-
-                    this.upgradeDefenses();
-
-                }
-            );
-
-        }
-
-
-        /*
-        RESTART
-        */
-
-        const restartBtn =
-            document.getElementById(
-                "restartBtn"
-            );
-
-        if (restartBtn) {
-
-            restartBtn.addEventListener(
-                "click",
-                () => {
-
-                    location.reload();
-
-                }
-            );
-
-        }
-
-
-        /*
-        VICTORY RESTART
-        */
-
-        const victoryBtn =
-            document.getElementById(
-                "victoryRestartBtn"
-            );
-
-        if (victoryBtn) {
-
-            victoryBtn.addEventListener(
-                "click",
-                () => {
-
-                    location.reload();
-
-                }
-            );
-
-        }
-
-
-        /*
-        PAUSE WITH P
-        */
-
-        document.addEventListener(
-            "keydown",
-            event => {
+            // ---------------------------------------------
+            // START FIRST WAVE
+            // ---------------------------------------------
+
+            setTimeout(() => {
 
                 if (
-                    event.key.toLowerCase() ===
-                    "p"
+                    this.running &&
+                    !this.gameOver
                 ) {
 
-                    this.togglePause();
-
+                    this.startWave();
                 }
 
-            }
-        );
-
-    },
+            }, 1000);
+        },
 
 
-    /* =================================================
-       START GAME
-    ================================================= */
+        // =================================================
+        // RESTART
+        // =================================================
 
-    start() {
+        restart() {
 
-        if (this.running) {
-            return;
-        }
-
-
-        this.running = true;
-
-        this.paused = false;
-
-        this.gameOver = false;
-
-        this.victory = false;
-
-
-        /*
-        Hide start screen.
-        */
-
-        if (this.startScreen) {
-
-            this.startScreen.classList.add(
-                "hidden"
+            cancelAnimationFrame(
+                this.animationFrame
             );
 
-        }
+            this.running = false;
+
+            this.start();
+        },
 
 
-        /*
-        Show game.
-        */
+        // =================================================
+        // GAME LOOP
+        // =================================================
 
-        if (this.gameScreen) {
-
-            this.gameScreen.classList.remove(
-                "hidden"
-            );
-
-        }
-
-
-        /*
-        Reset systems.
-        */
-
-        this.cityHP =
-            this.maxCityHP;
-
-        this.gold = 120;
-
-        this.supplies = 60;
-
-        this.kills = 0;
-
-        this.score = 0;
-
-        this.upgradeLevel = 1;
-
-
-        if (
-            window.Waves
-        ) {
-
-            window.Waves.reset();
-
-        }
-
-
-        if (
-            window.Units
-        ) {
-
-            window.Units.clearUnits();
-
-            window.Units.createDefaultDefenses();
-
-        }
-
-
-        if (
-            window.Effects
-        ) {
-
-            window.Effects.clearEffects();
-
-        }
-
-
-        this.updateHUD();
-
-
-        /*
-        Start game loop.
-        */
-
-        this.lastTime =
-            performance.now();
-
-
-        this.animationFrame =
-            requestAnimationFrame(
-                this.loop.bind(this)
-            );
-
-
-        /*
-        First wave.
-        */
-
-        setTimeout(() => {
+        loop(timestamp) {
 
             if (
-                this.running &&
-                !this.paused
+                !this.running
             ) {
-
-                this.startWave();
-
+                return;
             }
 
-        }, 1000);
-
-    },
-
-
-    /* =================================================
-       MAIN LOOP
-    ================================================= */
-
-    loop(timestamp) {
-
-        if (!this.running) {
-            return;
-        }
-
-
-        const delta =
-            Math.min(
-                (timestamp -
-                    this.lastTime) /
-                    1000,
-                .05
-            );
-
-
-        this.lastTime =
-            timestamp;
-
-
-        if (!this.paused) {
-
-            /*
-            Update waves.
-            */
-
-            if (
-                window.Waves
-            ) {
-
-                window.Waves.update(
-                    delta
+            const delta =
+                Math.min(
+                    timestamp -
+                    this.lastTime,
+                    100
                 );
 
-            }
+            this.lastTime =
+                timestamp;
 
-
-            /*
-            Update enemies.
-            */
 
             if (
-                window.Units
+                !this.paused &&
+                !this.gameOver &&
+                !this.victory
             ) {
 
-                window.Units.updateUnits(
+                if (
+                    window.Units &&
+                    typeof window.Units.updateUnits === "function"
+                ) {
+
+                    window.Units.updateUnits(
+                        delta
+                    );
+                }
+
+                this.updateCooldowns(
                     delta
                 );
-
             }
 
 
-            /*
-            Fire Rain cooldown.
-            */
+            this.animationFrame =
+                requestAnimationFrame(
+                    time =>
+                        this.loop(time)
+                );
+        },
+
+
+        // =================================================
+        // COOLDOWNS
+        // =================================================
+
+        updateCooldowns(
+            delta
+        ) {
 
             if (
                 this.fireRainCooldown > 0
             ) {
 
                 this.fireRainCooldown -=
-                    delta;
+                    delta / 1000;
 
                 if (
-                    this.fireRainCooldown < 0
+                    this.fireRainCooldown <
+                    0
                 ) {
 
-                    this.fireRainCooldown = 0;
-
+                    this.fireRainCooldown =
+                        0;
                 }
-
             }
 
-        }
+            this.updateHUD();
+        },
 
 
-        this.animationFrame =
-            requestAnimationFrame(
-                this.loop.bind(this)
-            );
+        // =================================================
+        // START WAVE
+        // =================================================
 
-    },
+        startWave() {
 
+            if (
+                !this.running ||
+                this.gameOver ||
+                this.victory
+            ) {
+                return;
+            }
 
-    /* =================================================
-       START WAVE
-    ================================================= */
+            if (
+                !window.Waves ||
+                typeof window.Waves.startWave !== "function"
+            ) {
+                return;
+            }
 
-    startWave() {
+            const started =
+                window.Waves.startWave();
 
-        if (!this.running) {
-            return;
-        }
+            if (started) {
 
+                this.updateHUD();
+            }
+        },
 
-        if (this.paused) {
-            return;
-        }
 
+        // =================================================
+        // BUY ARCHER
+        // =================================================
 
-        if (
-            window.Waves &&
-            window.Waves.active
-        ) {
+        buyArcher() {
 
-            this.notify(
-                "Wave masih berlangsung!",
-                "warning"
-            );
+            const cost = 150;
 
-            return;
+            if (this.gold < cost) {
 
-        }
-
-
-        /*
-        Victory check.
-        */
-
-        if (
-            window.Waves &&
-            window.Waves.currentWave >=
-            this.maxWaves
-        ) {
-
-            this.win();
-
-            return;
-
-        }
-
-
-        if (
-            window.Waves
-        ) {
-
-            window.Waves.startWave();
-
-        }
-
-
-        this.updateWaveButton();
-
-    },
-
-
-    /* =================================================
-       BUY ARCHER
-    ================================================= */
-
-    buyArcher() {
-
-        const cost = 150;
-
-
-        if (
-            this.gold < cost
-        ) {
-
-            this.notify(
-                "Gold tidak cukup!",
-                "danger"
-            );
-
-            return;
-
-        }
-
-
-        this.gold -= cost;
-
-
-        /*
-        Spawn tower.
-        */
-
-        if (
-            window.Units &&
-            window.Units.ArcherTower
-        ) {
-
-            const tower =
-                new window.Units.ArcherTower();
-
-            window.defenses.push(
-                tower
-            );
-
-        }
-
-
-        this.updateHUD();
-
-
-        this.notify(
-            "Archer Tower dibangun!",
-            "success"
-        );
-
-
-        if (
-            window.Effects
-        ) {
-
-            window.Effects.goldEffect(
-                -cost
-            );
-
-        }
-
-    },
-
-
-    /* =================================================
-       BUY CANNON
-    ================================================= */
-
-    buyCannon() {
-
-        const cost = 250;
-
-
-        if (
-            this.gold < cost
-        ) {
-
-            this.notify(
-                "Gold tidak cukup!",
-                "danger"
-            );
-
-            return;
-
-        }
-
-
-        this.gold -= cost;
-
-
-        if (
-            window.Units &&
-            window.Units.Cannon
-        ) {
-
-            const cannon =
-                new window.Units.Cannon();
-
-            window.defenses.push(
-                cannon
-            );
-
-        }
-
-
-        this.updateHUD();
-
-
-        this.notify(
-            "Cannon berhasil dibangun!",
-            "success"
-        );
-
-
-        if (
-            window.Effects
-        ) {
-
-            window.Effects.goldEffect(
-                -cost
-            );
-
-        }
-
-    },
-
-
-    /* =================================================
-       DAMAGE CITY
-    ================================================= */
-
-    damageCity(amount) {
-
-        if (
-            this.gameOver ||
-            this.victory
-        ) {
-            return;
-        }
-
-
-        amount =
-            Math.max(
-                0,
-                amount
-            );
-
-
-        this.cityHP -= amount;
-
-
-        this.cityHP =
-            Math.max(
-                0,
-                this.cityHP
-            );
-
-
-        this.updateHUD();
-
-
-        /*
-        Hit effect.
-        */
-
-        if (
-            window.Effects
-        ) {
-
-            window.Effects.buildingHit();
-
-            window.Effects.screenShake(
-                Math.min(
-                    10,
-                    amount / 2
-                ),
-                220
-            );
-
-        }
-
-
-        /*
-        GAME OVER
-        */
-
-        if (
-            this.cityHP <= 0
-        ) {
-
-            this.lose();
-
-        }
-
-    },
-
-
-    /* =================================================
-       REPAIR CITY
-    ================================================= */
-
-    repairCity() {
-
-        const cost = 75;
-
-        const heal = 20;
-
-
-        if (
-            this.gold < cost
-        ) {
-
-            this.notify(
-                "Gold tidak cukup!",
-                "danger"
-            );
-
-            return;
-
-        }
-
-
-        if (
-            this.cityHP >=
-            this.maxCityHP
-        ) {
-
-            this.notify(
-                "Tembok masih penuh!",
-                "warning"
-            );
-
-            return;
-
-        }
-
-
-        this.gold -= cost;
-
-
-        this.cityHP += heal;
-
-
-        this.cityHP =
-            Math.min(
-                this.maxCityHP,
-                this.cityHP
-            );
-
-
-        this.updateHUD();
-
-
-        this.notify(
-            `City repaired +${heal} HP`,
-            "success"
-        );
-
-    },
-
-
-    /* =================================================
-       ADD GOLD
-    ================================================= */
-
-    addGold(amount) {
-
-        this.gold +=
-            Math.floor(
-                amount
-            );
-
-
-        this.gold =
-            Math.max(
-                0,
-                this.gold
-            );
-
-
-        this.updateHUD();
-
-    },
-
-
-    /* =================================================
-       ADD KILL
-    ================================================= */
-
-    addKill(
-        score = 0
-    ) {
-
-        this.kills++;
-
-        this.score +=
-            Math.floor(
-                score
-            );
-
-
-        this.updateHUD();
-
-    },
-
-
-    /* =================================================
-       FIRE RAIN
-    ================================================= */
-
-    fireRain() {
-
-        const supplyCost = 35;
-
-
-        if (
-            this.fireRainCooldown > 0
-        ) {
-
-            this.notify(
-                "Fire Rain sedang cooldown!",
-                "warning"
-            );
-
-            return;
-
-        }
-
-
-        if (
-            this.supplies <
-            supplyCost
-        ) {
-
-            this.notify(
-                "Supplies tidak cukup!",
-                "danger"
-            );
-
-            return;
-
-        }
-
-
-        this.supplies -=
-            supplyCost;
-
-
-        this.fireRainCooldown =
-            12;
-
-
-        /*
-        Visual effect.
-        */
-
-        if (
-            window.Effects
-        ) {
-
-            window.Effects.fireRainEffect();
-
-        }
-
-
-        /*
-        Damage every enemy.
-        */
-
-        const enemies =
-            window.enemies || [];
-
-
-        enemies.forEach(
-            enemy => {
-
-                if (
-                    !enemy.alive
-                ) {
-                    return;
-                }
-
-
-                const damage =
-                    110 +
-                    this.upgradeLevel *
-                    15;
-
-
-                enemy.takeDamage(
-                    damage
+                this.notify(
+                    "NOT ENOUGH GOLD"
                 );
 
+                return;
             }
-        );
 
+            if (
+                !window.Units ||
+                typeof window.Units.createArcher !== "function"
+            ) {
+                return;
+            }
 
-        this.updateHUD();
+            const tower =
+                window.Units.createArcher();
 
+            if (!tower) {
+                return;
+            }
 
-        this.notify(
-            "🔥 FIRE RAIN!",
-            "success"
-        );
-
-    },
-
-
-    /* =================================================
-       UPGRADE DEFENSES
-    ================================================= */
-
-    upgradeDefenses() {
-
-        const cost =
-            100 +
-            this.upgradeLevel *
-            75;
-
-
-        if (
-            this.gold <
-            cost
-        ) {
+            this.gold -= cost;
 
             this.notify(
-                `Butuh ${cost} gold!`,
-                "danger"
+                "🏹 ARCHER TOWER BUILT"
             );
 
-            return;
-
-        }
-
-
-        this.gold -= cost;
+            this.updateHUD();
+        },
 
 
-        this.upgradeLevel++;
+        // =================================================
+        // BUY CANNON
+        // =================================================
+
+        buyCannon() {
+
+            const cost = 250;
+
+            if (this.gold < cost) {
+
+                this.notify(
+                    "NOT ENOUGH GOLD"
+                );
+
+                return;
+            }
+
+            if (
+                !window.Units ||
+                typeof window.Units.createCannon !== "function"
+            ) {
+                return;
+            }
+
+            const cannon =
+                window.Units.createCannon();
+
+            if (!cannon) {
+                return;
+            }
+
+            this.gold -= cost;
+
+            this.notify(
+                "💣 CANNON BUILT"
+            );
+
+            this.updateHUD();
+        },
 
 
-        /*
-        Upgrade every defense.
-        */
+        // =================================================
+        // FIRE RAIN
+        // =================================================
 
-        const defenses =
-            window.defenses || [];
+        fireRain() {
+
+            const cost = 35;
+
+            if (
+                this.fireRainCooldown >
+                0
+            ) {
+
+                this.notify(
+                    `FIRE RAIN RECHARGING ${this.fireRainCooldown.toFixed(1)}s`
+                );
+
+                return;
+            }
+
+            if (
+                this.supplies <
+                cost
+            ) {
+
+                this.notify(
+                    "NOT ENOUGH SUPPLIES"
+                );
+
+                return;
+            }
 
 
-        defenses.forEach(
-            defense => {
+            this.supplies -= cost;
+
+            this.fireRainCooldown =
+                this.fireRainMaxCooldown;
+
+
+            // ---------------------------------------------
+            // VISUAL
+            // ---------------------------------------------
+
+            if (
+                window.Effects &&
+                typeof window.Effects.fireRainEffect === "function"
+            ) {
+
+                window.Effects.fireRainEffect();
+            }
+
+
+            // ---------------------------------------------
+            // DAMAGE
+            // ---------------------------------------------
+
+            const damage =
+                110 +
+                this.upgradeLevel *
+                15;
+
+            const targets =
+                window.enemies
+                    ? [
+                        ...window.enemies
+                    ]
+                    : [];
+
+            targets.forEach(enemy => {
 
                 if (
-                    defense &&
-                    typeof defense.upgrade ===
-                    "function"
+                    enemy &&
+                    enemy.alive
                 ) {
 
-                    defense.upgrade();
-
+                    enemy.takeDamage(
+                        damage
+                    );
                 }
+            });
 
-            }
-        );
-
-
-        this.updateHUD();
-
-
-        this.notify(
-            `Defense upgraded to Lv.${this.upgradeLevel}`,
-            "success"
-        );
-
-
-        if (
-            window.Effects
-        ) {
-
-            window.Effects.createParticles(
-                this.battlefield,
-                15
-            );
-
-        }
-
-    },
-
-
-    /* =================================================
-       TOGGLE PAUSE
-    ================================================= */
-
-    togglePause() {
-
-        if (
-            !this.running ||
-            this.gameOver ||
-            this.victory
-        ) {
-            return;
-        }
-
-
-        this.paused =
-            !this.paused;
-
-
-        if (
-            this.paused
-        ) {
 
             this.notify(
-                "GAME PAUSED",
-                "warning"
+                `🔥 FIRE RAIN — ${damage} DAMAGE`
             );
 
-        } else {
+            this.updateHUD();
+        },
 
-            this.notify(
-                "GAME RESUMED",
-                "success"
-            );
 
+        // =================================================
+        // UPGRADE
+        // =================================================
 
-            this.lastTime =
-                performance.now();
+        upgradeDefenses() {
 
-        }
-
-    },
-
-
-    /* =================================================
-       GAME OVER
-    ================================================= */
-
-    lose() {
-
-        if (
-            this.gameOver
-        ) {
-            return;
-        }
-
-
-        this.gameOver = true;
-
-        this.running = false;
-
-        this.paused = false;
-
-
-        if (
-            this.animationFrame
-        ) {
-
-            cancelAnimationFrame(
-                this.animationFrame
-            );
-
-        }
-
-
-        /*
-        Hide game.
-        */
-
-        if (
-            this.gameScreen
-        ) {
-
-            this.gameScreen.classList.add(
-                "hidden"
-            );
-
-        }
-
-
-        /*
-        Show game over.
-        */
-
-        if (
-            this.gameOverScreen
-        ) {
-
-            this.gameOverScreen.classList.remove(
-                "hidden"
-            );
-
-        }
-
-
-        /*
-        Update result stats.
-        */
-
-        this.updateResultScreen(
-            this.gameOverScreen
-        );
-
-
-        if (
-            window.Effects
-        ) {
-
-            window.Effects.screenShake(
-                15,
-                600
-            );
-
-        }
-
-    },
-
-
-    /* =================================================
-       VICTORY
-    ================================================= */
-
-    win() {
-
-        if (
-            this.victory
-        ) {
-            return;
-        }
-
-
-        this.victory = true;
-
-        this.running = false;
-
-        this.paused = false;
-
-
-        if (
-            this.animationFrame
-        ) {
-
-            cancelAnimationFrame(
-                this.animationFrame
-            );
-
-        }
-
-
-        if (
-            this.gameScreen
-        ) {
-
-            this.gameScreen.classList.add(
-                "hidden"
-            );
-
-        }
-
-
-        if (
-            this.victoryScreen
-        ) {
-
-            this.victoryScreen.classList.remove(
-                "hidden"
-            );
-
-        }
-
-
-        this.updateResultScreen(
-            this.victoryScreen
-        );
-
-
-        /*
-        Victory bonus.
-        */
-
-        this.score += 5000;
-
-        this.updateHUD();
-
-    },
-
-
-    /* =================================================
-       RESULT SCREEN
-    ================================================= */
-
-    updateResultScreen(
-        screen
-    ) {
-
-        if (!screen) {
-            return;
-        }
-
-
-        const wave =
-            screen.querySelector(
-                ".result-wave"
-            );
-
-        const kills =
-            screen.querySelector(
-                ".result-kills"
-            );
-
-        const score =
-            screen.querySelector(
-                ".result-score"
-            );
-
-
-        if (wave) {
-
-            wave.textContent =
-                window.Waves
-                    ? window.Waves.currentWave
-                    : 0;
-
-        }
-
-
-        if (kills) {
-
-            kills.textContent =
-                this.kills;
-
-        }
-
-
-        if (score) {
-
-            score.textContent =
-                this.score;
-
-        }
-
-    },
-
-
-    /* =================================================
-       UPDATE WAVE BUTTON
-    ================================================= */
-
-    updateWaveButton() {
-
-        if (!this.waveButton) {
-            return;
-        }
-
-
-        if (
-            window.Waves &&
-            window.Waves.active
-        ) {
-
-            this.waveButton.textContent =
-                "WAVE IN PROGRESS";
-
-            this.waveButton.disabled =
-                true;
-
-        } else {
-
-            this.waveButton.disabled =
-                false;
-
-
-            const next =
-                window.Waves
-                    ? window.Waves.currentWave + 1
-                    : 1;
+            const cost =
+                100 *
+                this.upgradeLevel;
 
 
             if (
-                next >
+                this.gold <
+                cost
+            ) {
+
+                this.notify(
+                    "NOT ENOUGH GOLD"
+                );
+
+                return;
+            }
+
+
+            if (
+                !window.defenses ||
+                window.defenses.length === 0
+            ) {
+
+                this.notify(
+                    "NO DEFENSES AVAILABLE"
+                );
+
+                return;
+            }
+
+
+            this.gold -= cost;
+
+            this.upgradeLevel++;
+
+
+            window.defenses.forEach(
+                defense => {
+
+                    if (
+                        defense &&
+                        typeof defense.upgrade === "function"
+                    ) {
+
+                        defense.upgrade();
+                    }
+                }
+            );
+
+
+            this.notify(
+                `⚡ DEFENSES UPGRADED — LEVEL ${this.upgradeLevel}`
+            );
+
+            this.updateHUD();
+        },
+
+
+        // =================================================
+        // CITY DAMAGE
+        // =================================================
+
+        damageCity(
+            amount
+        ) {
+
+            if (
+                this.gameOver ||
+                this.victory
+            ) {
+                return;
+            }
+
+            amount =
+                Math.max(
+                    0,
+                    Number(amount) || 0
+                );
+
+
+            this.cityHP -=
+                amount;
+
+            this.cityHP =
+                Math.max(
+                    0,
+                    this.cityHP
+                );
+
+
+            if (
+                window.Effects &&
+                typeof window.Effects.buildingHit === "function"
+            ) {
+
+                window.Effects.buildingHit(
+                    13,
+                    60
+                );
+            }
+
+
+            if (
+                window.Effects &&
+                typeof window.Effects.screenShake === "function"
+            ) {
+
+                window.Effects.screenShake(
+                    250
+                );
+            }
+
+
+            this.updateHUD();
+
+
+            if (
+                this.cityHP <=
+                0
+            ) {
+
+                this.lose();
+            }
+        },
+
+
+        // =================================================
+        // REPAIR
+        // =================================================
+
+        repairCity() {
+
+            const cost = 75;
+            const heal = 150;
+
+            if (
+                this.cityHP >=
+                this.maxCityHP
+            ) {
+
+                this.notify(
+                    "CITY HP IS FULL"
+                );
+
+                return;
+            }
+
+            if (
+                this.gold <
+                cost
+            ) {
+
+                this.notify(
+                    "NOT ENOUGH GOLD"
+                );
+
+                return;
+            }
+
+
+            this.gold -= cost;
+
+            this.cityHP =
+                Math.min(
+                    this.maxCityHP,
+                    this.cityHP +
+                    heal
+                );
+
+
+            this.notify(
+                `🔧 WALLS REPAIRED +${heal} HP`
+            );
+
+            this.updateHUD();
+        },
+
+
+        // =================================================
+        // GOLD
+        // =================================================
+
+        addGold(
+            amount
+        ) {
+
+            amount =
+                Math.max(
+                    0,
+                    Number(amount) || 0
+                );
+
+            this.gold += amount;
+
+            this.updateHUD();
+        },
+
+
+        // =================================================
+        // KILL
+        // =================================================
+
+        addKill(
+            score
+        ) {
+
+            this.kills++;
+
+            this.score +=
+                Number(score) || 0;
+
+            this.updateHUD();
+        },
+
+
+        // =================================================
+        // HUD
+        // =================================================
+
+        updateHUD() {
+
+            const e =
+                this.elements;
+
+
+            if (e.waveDisplay) {
+
+                e.waveDisplay.textContent =
+                    window.Waves
+                        ? window.Waves.currentWave
+                        : 0;
+            }
+
+
+            if (e.goldDisplay) {
+
+                e.goldDisplay.textContent =
+                    Math.floor(
+                        this.gold
+                    );
+            }
+
+
+            if (e.killDisplay) {
+
+                e.killDisplay.textContent =
+                    this.kills;
+            }
+
+
+            if (e.scoreDisplay) {
+
+                e.scoreDisplay.textContent =
+                    this.score;
+            }
+
+
+            if (e.cityHpBar) {
+
+                const percent =
+                    (
+                        this.cityHP /
+                        this.maxCityHP
+                    ) * 100;
+
+                e.cityHpBar.style.width =
+                    `${Math.max(
+                        0,
+                        Math.min(
+                            100,
+                            percent
+                        )
+                    )}%`;
+            }
+
+
+            if (e.cityHpText) {
+
+                e.cityHpText.textContent =
+                    `${Math.ceil(
+                        this.cityHP
+                    )} / ${this.maxCityHP}`;
+            }
+
+
+            if (e.fireRainStatus) {
+
+                if (
+                    this.fireRainCooldown >
+                    0
+                ) {
+
+                    e.fireRainStatus.textContent =
+                        `${this.fireRainCooldown.toFixed(1)}s`;
+
+                } else {
+
+                    e.fireRainStatus.textContent =
+                        "READY";
+                }
+            }
+
+
+            if (e.upgradeCost) {
+
+                e.upgradeCost.textContent =
+                    `${100 * this.upgradeLevel}G`;
+            }
+
+
+            this.updateWaveButton();
+        },
+
+
+        // =================================================
+        // WAVE BUTTON
+        // =================================================
+
+        updateWaveButton() {
+
+            const button =
+                this.elements.startWaveButton;
+
+            if (!button) {
+                return;
+            }
+
+            if (
+                window.Waves &&
+                window.Waves.active
+            ) {
+
+                button.textContent =
+                    "⚔ WAVE IN PROGRESS";
+
+                button.disabled =
+                    true;
+
+                return;
+            }
+
+
+            if (
+                window.Waves &&
+                window.Waves.currentWave >=
                 this.maxWaves
             ) {
 
-                this.waveButton.textContent =
-                    "VICTORY";
+                button.textContent =
+                    "SIEGE COMPLETE";
 
-            } else {
+                button.disabled =
+                    true;
 
-                this.waveButton.textContent =
-                    `START WAVE ${next}`;
-
+                return;
             }
 
-        }
 
-    },
+            button.disabled =
+                false;
+
+            button.textContent =
+                window.Waves &&
+                window.Waves.currentWave > 0
+                    ? "NEXT WAVE"
+                    : "START WAVE";
+        },
 
 
-    /* =================================================
-       UPDATE HUD
-    ================================================= */
+        // =================================================
+        // NOTIFICATION
+        // =================================================
 
-    updateHUD() {
+        notify(
+            message
+        ) {
 
-        if (this.waveDisplay) {
+            let notification =
+                document.getElementById(
+                    "gameNotification"
+                );
 
-            this.waveDisplay.textContent =
+
+            if (!notification) {
+
+                notification =
+                    document.createElement(
+                        "div"
+                    );
+
+                notification.id =
+                    "gameNotification";
+
+                notification.className =
+                    "game-notification";
+
+                const world =
+                    document.getElementById(
+                        "gameWorld"
+                    );
+
+                if (world) {
+                    world.appendChild(
+                        notification
+                    );
+                }
+            }
+
+
+            notification.textContent =
+                message;
+
+            notification.classList.remove(
+                "show"
+            );
+
+            void notification.offsetWidth;
+
+            notification.classList.add(
+                "show"
+            );
+
+
+            clearTimeout(
+                this.notificationTimer
+            );
+
+            this.notificationTimer =
+                setTimeout(() => {
+
+                    notification.classList.remove(
+                        "show"
+                    );
+
+                }, 1800);
+        },
+
+
+        // =================================================
+        // SCREEN MANAGEMENT
+        // =================================================
+
+        showScreen(
+            screenId
+        ) {
+
+            const screens = [
+                "startScreen",
+                "gameScreen",
+                "gameOverScreen",
+                "victoryScreen"
+            ];
+
+
+            screens.forEach(id => {
+
+                const screen =
+                    document.getElementById(
+                        id
+                    );
+
+                if (!screen) {
+                    return;
+                }
+
+                if (
+                    id === screenId
+                ) {
+
+                    screen.classList.add(
+                        "active"
+                    );
+
+                } else {
+
+                    screen.classList.remove(
+                        "active"
+                    );
+                }
+            });
+        },
+
+
+        // =================================================
+        // LOSE
+        // =================================================
+
+        lose() {
+
+            if (
+                this.gameOver
+            ) {
+                return;
+            }
+
+            this.gameOver =
+                true;
+
+            this.running =
+                false;
+
+
+            cancelAnimationFrame(
+                this.animationFrame
+            );
+
+
+            const wave =
                 window.Waves
                     ? window.Waves.currentWave
                     : 0;
 
-        }
+
+            if (this.elements.finalWave) {
+
+                this.elements.finalWave.textContent =
+                    wave;
+            }
+
+            if (this.elements.finalKills) {
+
+                this.elements.finalKills.textContent =
+                    this.kills;
+            }
+
+            if (this.elements.finalScore) {
+
+                this.elements.finalScore.textContent =
+                    this.score;
+            }
 
 
-        if (this.goldDisplay) {
-
-            this.goldDisplay.textContent =
-                this.gold;
-
-        }
+            this.showScreen(
+                "gameOverScreen"
+            );
+        },
 
 
-        if (this.cityHPDisplay) {
+        // =================================================
+        // VICTORY
+        // =================================================
 
-            this.cityHPDisplay.textContent =
-                `${Math.ceil(
-                    this.cityHP
-                )}/${this.maxCityHP}`;
+        win() {
 
-        }
+            if (
+                this.victory
+            ) {
+                return;
+            }
 
+            this.victory =
+                true;
 
-        if (this.killsDisplay) {
-
-            this.killsDisplay.textContent =
-                this.kills;
-
-        }
-
-
-        if (this.scoreDisplay) {
-
-            this.scoreDisplay.textContent =
-                this.score;
-
-        }
+            this.running =
+                false;
 
 
-        if (this.suppliesDisplay) {
-
-            this.suppliesDisplay.textContent =
-                this.supplies;
-
-        }
-
-
-        this.updateWaveButton();
-
-    },
-
-
-    /* =================================================
-       NOTIFICATION
-    ================================================= */
-
-    notify(
-        text,
-        type = "normal"
-    ) {
-
-        const world =
-            this.world ||
-            document.body;
-
-
-        const notification =
-            document.createElement(
-                "div"
+            cancelAnimationFrame(
+                this.animationFrame
             );
 
 
-        notification.className =
-            `game-notification ${type}`;
+            const wave =
+                window.Waves
+                    ? window.Waves.currentWave
+                    : this.maxWaves;
 
 
-        notification.textContent =
-            text;
+            if (
+                this.elements.victoryWave
+            ) {
 
-
-        notification.style.position =
-            "absolute";
-
-        notification.style.left =
-            "50%";
-
-        notification.style.top =
-            "72%";
-
-        notification.style.transform =
-            "translateX(-50%)";
-
-        notification.style.zIndex =
-            "1000";
-
-        notification.style.pointerEvents =
-            "none";
-
-        notification.style.padding =
-            "9px 18px";
-
-        notification.style.border =
-            "1px solid rgba(255,255,255,.2)";
-
-        notification.style.background =
-            "rgba(0,0,0,.75)";
-
-        notification.style.color =
-            "#eee";
-
-        notification.style.fontSize =
-            "12px";
-
-        notification.style.letterSpacing =
-            "1px";
-
-
-        world.appendChild(
-            notification
-        );
-
-
-        notification.animate(
-            [
-                {
-                    opacity: 0,
-                    transform:
-                        "translate(-50%,15px)"
-                },
-                {
-                    opacity: 1,
-                    transform:
-                        "translate(-50%,0)"
-                },
-                {
-                    opacity: 0,
-                    transform:
-                        "translate(-50%,-15px)"
-                }
-            ],
-            {
-                duration: 1500,
-                easing: "ease-out"
+                this.elements.victoryWave.textContent =
+                    wave;
             }
-        );
+
+            if (
+                this.elements.victoryKills
+            ) {
+
+                this.elements.victoryKills.textContent =
+                    this.kills;
+            }
+
+            if (
+                this.elements.victoryScore
+            ) {
+
+                this.elements.victoryScore.textContent =
+                    this.score;
+            }
 
 
-        setTimeout(() => {
-
-            notification.remove();
-
-        }, 1600);
-
-    }
-
-};
+            this.showScreen(
+                "victoryScreen"
+            );
+        }
+    };
 
 
-/* =====================================================
-   GLOBAL REPAIR FUNCTION
-===================================================== */
+    // =====================================================
+    // EXPORT
+    // =====================================================
 
-window.repairCity = function () {
+    window.Game = Game;
 
-    if (
-        window.Game
-    ) {
-
-        window.Game.repairCity();
-
-    }
-
-};
-
-
-/* =====================================================
-   AUTO INITIALIZE
-===================================================== */
-
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-
-        window.Game.init();
-
-    }
-);
+})();
