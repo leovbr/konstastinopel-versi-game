@@ -1,183 +1,471 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#080a0e">
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0,
+                   maximum-scale=1.0, user-scalable=no">
 
-  <title>Siege of Constantinople — 1453</title>
+    <title>Siege of Constantinople V2</title>
 
-  <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
 
-  <!-- GAME CANVAS -->
-  <canvas id="game"></canvas>
+<!-- =========================
+     START SCREEN
+========================= -->
+
+<div id="startScreen" class="screen active">
+    <div class="title-box">
+        <div class="small-title">1453 • THE FINAL SIEGE</div>
+
+        <h1>SIEGE OF<br>CONSTANTINOPLE</h1>
+
+        <p>
+            Defend the last walls of the Byzantine Empire.
+        </p>
+
+        <button id="startButton" class="main-button">
+            ⚔ BEGIN SIEGE
+        </button>
+
+        <div class="version">
+            WEB EDITION • V2
+        </div>
+    </div>
+</div>
 
 
-  <!-- HUD -->
-  <div id="hud">
+<!-- =========================
+     GAME
+========================= -->
 
-    <!-- LEFT HUD -->
-    <div class="hud-left panel">
-      <div class="brand">SIEGE OF CONSTANTINOPLE</div>
-      <div class="date">29 MAY 1453 • FINAL STAND</div>
+<div id="gameScreen" class="game-screen">
 
-      <div class="stat-row">
-        <span>CITY</span>
-        <b id="cityHpText">100 / 100</b>
-      </div>
+    <!-- TOP HUD -->
 
-      <div class="bar">
-        <i id="cityHpBar"></i>
-      </div>
+    <header class="hud">
 
-      <div class="wave">
-        WAVE <b id="waveText">1</b>
-      </div>
+        <div class="hud-left">
 
-      <div class="small">NEXT ASSAULT</div>
+            <div class="stat">
+                <span class="stat-label">WAVE</span>
+                <span id="waveDisplay">1</span>
+            </div>
 
-      <div class="bar thin">
-        <i id="waveBar"></i>
-      </div>
+            <div class="stat">
+                <span class="stat-label">GOLD</span>
+                <span id="goldDisplay">500</span>
+            </div>
+
+        </div>
+
+
+        <div class="city-status">
+
+            <div class="city-name">
+                CONSTANTINOPLE
+            </div>
+
+            <div class="hp-container">
+                <div id="cityHpBar" class="hp-bar"></div>
+            </div>
+
+            <div id="cityHpText">
+                1000 / 1000
+            </div>
+
+        </div>
+
+
+        <div class="hud-right">
+
+            <div class="stat">
+                <span class="stat-label">KILLS</span>
+                <span id="killDisplay">0</span>
+            </div>
+
+            <div class="stat">
+                <span class="stat-label">SCORE</span>
+                <span id="scoreDisplay">0</span>
+            </div>
+
+        </div>
+
+    </header>
+
+
+    <!-- GAME WORLD -->
+
+    <main id="gameWorld">
+
+        <!-- BACKGROUND -->
+
+        <div class="sky"></div>
+
+        <div class="moon"></div>
+
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+
+        <div class="far-city">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+
+
+        <!-- SEA -->
+
+        <div class="sea">
+
+            <div class="wave-line"></div>
+            <div class="wave-line second"></div>
+
+            <div class="ship ship-1">
+                <div class="ship-body"></div>
+                <div class="mast"></div>
+                <div class="sail"></div>
+            </div>
+
+            <div class="ship ship-2">
+                <div class="ship-body"></div>
+                <div class="mast"></div>
+                <div class="sail"></div>
+            </div>
+
+        </div>
+
+
+        <!-- BATTLEFIELD -->
+
+        <div id="battlefield">
+
+            <!-- ENEMIES WILL SPAWN HERE -->
+
+        </div>
+
+
+        <!-- CASTLE -->
+
+        <div id="castle">
+
+            <div class="castle-wall">
+
+                <div class="wall-top">
+
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+
+                </div>
+
+                <div class="tower tower-left">
+                    <div class="tower-roof"></div>
+                    <div class="tower-window"></div>
+                </div>
+
+                <div class="tower tower-right">
+                    <div class="tower-roof"></div>
+                    <div class="tower-window"></div>
+                </div>
+
+                <div class="gate">
+
+                    <div class="gate-door"></div>
+
+                    <div class="gate-top">
+                        CONSTANTINOPLE
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- DEFENSE TOWERS -->
+
+        <div id="defenseLayer">
+
+            <!-- ARCHER TOWER -->
+            <div id="archerTower"
+                 class="defense-building archer-tower">
+
+                <div class="tower-wood-base"></div>
+
+                <div class="archer-platform">
+
+                    <div class="archer-character">
+
+                        <div class="archer-head"></div>
+
+                        <div class="archer-body"></div>
+
+                        <div class="archer-bow"></div>
+
+                        <div class="archer-arm"></div>
+
+                    </div>
+
+                </div>
+
+                <div class="tower-ladder"></div>
+
+                <div class="building-level">
+                    LV 1
+                </div>
+
+            </div>
+
+
+            <!-- CANNON -->
+
+            <div id="cannonTower"
+                 class="defense-building cannon-tower">
+
+                <div class="cannon-base">
+
+                    <div class="cannon-wheel left"></div>
+                    <div class="cannon-wheel right"></div>
+
+                    <div class="cannon-body">
+
+                        <div class="cannon-barrel"></div>
+
+                        <div class="cannon-muzzle"></div>
+
+                    </div>
+
+                </div>
+
+                <div class="building-level">
+                    LV 1
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- PROJECTILES -->
+
+        <div id="projectileLayer"></div>
+
+        <!-- PARTICLES -->
+
+        <div id="particleLayer"></div>
+
+        <!-- DAMAGE NUMBERS -->
+
+        <div id="damageLayer"></div>
+
+    </main>
+
+
+    <!-- =========================
+         BOTTOM CONTROLS
+    ========================== -->
+
+    <section class="control-panel">
+
+        <div class="selected-info">
+
+            <div id="selectionTitle">
+                DEFENSE COMMAND
+            </div>
+
+            <div id="selectionDescription">
+                Build and upgrade your defenses.
+            </div>
+
+        </div>
+
+
+        <div class="action-buttons">
+
+            <button id="archerButton"
+                    class="action-button archer-btn">
+
+                <span class="button-icon">🏹</span>
+
+                <span>
+                    ARCHER
+                    <small>150G</small>
+                </span>
+
+            </button>
+
+
+            <button id="cannonButton"
+                    class="action-button cannon-btn">
+
+                <span class="button-icon">💣</span>
+
+                <span>
+                    CANNON
+                    <small>250G</small>
+                </span>
+
+            </button>
+
+
+            <button id="fireRainButton"
+                    class="action-button fire-btn">
+
+                <span class="button-icon">🔥</span>
+
+                <span>
+                    FIRE RAIN
+                    <small id="fireRainStatus">READY</small>
+                </span>
+
+            </button>
+
+
+            <button id="upgradeButton"
+                    class="action-button upgrade-btn">
+
+                <span class="button-icon">⚡</span>
+
+                <span>
+                    UPGRADE
+                    <small id="upgradeCost">100G</small>
+                </span>
+
+            </button>
+
+        </div>
+
+
+        <div class="wave-controls">
+
+            <button id="startWaveButton"
+                    class="wave-button">
+
+                START WAVE
+
+            </button>
+
+        </div>
+
+    </section>
+
+</div>
+
+
+<!-- =========================
+     GAME OVER
+========================= -->
+
+<div id="gameOverScreen" class="screen">
+
+    <div class="result-box">
+
+        <div class="result-small">
+            THE CITY HAS FALLEN
+        </div>
+
+        <h2>CONSTANTINOPLE<br>HAS FALLEN</h2>
+
+        <div class="result-stats">
+
+            <div>
+                <span>WAVE</span>
+                <strong id="finalWave">0</strong>
+            </div>
+
+            <div>
+                <span>KILLS</span>
+                <strong id="finalKills">0</strong>
+            </div>
+
+            <div>
+                <span>SCORE</span>
+                <strong id="finalScore">0</strong>
+            </div>
+
+        </div>
+
+        <button id="restartButton"
+                class="main-button">
+
+            ⚔ TRY AGAIN
+
+        </button>
+
     </div>
 
-
-    <!-- RIGHT HUD -->
-    <div class="hud-right panel">
-
-      <div>
-        GOLD <b id="goldText">0</b>
-      </div>
-
-      <div>
-        SUPPLIES <b id="suppliesText">60</b>
-      </div>
-
-      <div>
-        SCORE <b id="scoreText">0</b>
-      </div>
-
-    </div>
-
-  </div>
+</div>
 
 
-  <!-- BANNER -->
-  <div id="banner"></div>
+<!-- =========================
+     VICTORY
+========================= -->
 
+<div id="victoryScreen" class="screen">
 
-  <!-- CONTROLS -->
-  <div id="controls">
+    <div class="result-box victory-box">
 
-    <button data-action="archer">
-      🏹 ARCHER
-      <small id="archerCost">35G</small>
-    </button>
+        <div class="result-small">
+            THE SIEGE IS OVER
+        </div>
 
-    <button data-action="cannon">
-      💥 CANNON
-      <small id="cannonCost">90G</small>
-    </button>
+        <h2>VICTORY</h2>
 
-    <button data-action="repair">
-      🧱 REPAIR
-      <small id="repairCost">40G</small>
-    </button>
+        <p>
+            Constantinople has survived the assault.
+        </p>
 
-    <button data-action="upgrade">
-      ⚔ UPGRADE
-      <small id="upgradeCost">80G</small>
-    </button>
+        <div class="result-stats">
 
-    <button data-action="ability">
-      🔥 FIRE RAIN
-      <small id="abilityCost">35S</small>
-    </button>
+            <div>
+                <span>WAVE</span>
+                <strong id="victoryWave">0</strong>
+            </div>
 
-  </div>
+            <div>
+                <span>KILLS</span>
+                <strong id="victoryKills">0</strong>
+            </div>
 
+            <div>
+                <span>SCORE</span>
+                <strong id="victoryScore">0</strong>
+            </div>
 
-  <!-- START SCREEN -->
-  <div id="start" class="overlay">
+        </div>
 
-    <div class="modal">
+        <button id="victoryRestartButton"
+                class="main-button">
 
-      <div class="eyebrow">
-        BYZANTINE DEFENSE COMMAND
-      </div>
+            ⚔ PLAY AGAIN
 
-      <h1>SIEGE</h1>
-      <h2>CONSTANTINOPLE</h2>
-
-      <p>
-        1453. The Ottoman army has breached the outer defenses.
-        You command the last line of the city.
-      </p>
-
-      <ul>
-        <li>Tap/click anywhere to fire your crossbow.</li>
-        <li>Spend gold to recruit defenders and repair the walls.</li>
-        <li>Survive the waves. Every 5th wave contains a commander.</li>
-        <li>On mobile, landscape mode is recommended.</li>
-      </ul>
-
-      <button id="startBtn" class="primary">
-        ENTER THE SIEGE
-      </button>
+        </button>
 
     </div>
 
-  </div>
+</div>
 
 
-  <!-- GAME OVER SCREEN -->
-  <div id="gameover" class="overlay hidden">
+<!-- =========================
+     JAVASCRIPT
+========================= -->
 
-    <div class="modal">
-
-      <div class="eyebrow">
-        THE LAST DAY
-      </div>
-
-      <h1 id="endingTitle">
-        THE CITY HAS FALLEN
-      </h1>
-
-      <p id="endingText"></p>
-
-      <div class="results">
-
-        <span>
-          WAVE
-          <b id="finalWave">0</b>
-        </span>
-
-        <span>
-          SCORE
-          <b id="finalScore">0</b>
-        </span>
-
-        <span>
-          GOLD
-          <b id="finalGold">0</b>
-        </span>
-
-      </div>
-
-      <button id="restartBtn" class="primary">
-        RISE AGAIN
-      </button>
-
-    </div>
-
-  </div>
-
-
-  <!-- MAIN JAVASCRIPT -->
-  <script type="module" src="js/main.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/units.js"></script>
+<script src="js/waves.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
 
 </body>
 </html>
